@@ -1,25 +1,53 @@
 import socket
-import threading
+import base64
+import os
 
-# Server configuration
-HOST = '0.0.0.0'  # Listen on all available interfaces
-PORT = 12345      # Port to listen on
+HOST = '0.0.0.0'  # Listen on all interfaces
+PORT = 5001
+BUFFER_SIZE = 4096  # 4 KB chunks
 
-def handle_client(client_socket, client_address):
-    print(f"New connection from {client_address}")
-    client_socket.sendall(b"hello")  # Send "hello" to the client
-    client_socket.close()            # Close the connection
+def handle_client(conn):
+    try:
+        header = conn.recv(BUFFER_SIZE).decode()
+        if not header.startswith("UPLOAD"):
+            print("Unknown command")
+            return
+
+        _, filename, filesize = header.split("|")
+        filesize = int(filesize)
+        print(f"Receiving file: {filename} ({filesize} bytes)")
+
+        conn.send(b"READY")  # Acknowledge the upload
+
+        received_bytes = 0
+        b64_data = b""
+        while received_bytes < filesize:
+            chunk = conn.recv(BUFFER_SIZE)
+            if not chunk:
+                break
+            b64_data += chunk
+            received_bytes += len(chunk)
+
+        file_data = base64.b64decode(b64_data)
+        with open(f"received_{filename}", "wb") as f:
+            f.write(file_data)
+
+        print(f"File {filename} received and saved.")
+        conn.send(b"SUCCESS")
+    except Exception as e:
+        print("Error:", e)
+        conn.send(b"ERROR")
 
 def start_server():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
-    server.listen(5)  # Allow up to 5 queued connections
-    print(f"Server listening on {HOST}:{PORT}")
-
-    while True:
-        client_socket, client_address = server.accept()
-        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
-        client_thread.start()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen(1)
+        print(f"Server listening on {HOST}:{PORT}")
+        while True:
+            conn, addr = s.accept()
+            print(f"Connection from {addr}")
+            handle_client(conn)
+            conn.close()
 
 if __name__ == "__main__":
     start_server()

@@ -1,49 +1,38 @@
 import socket
+import base64
 import os
-import pathlib
-import c_db
-import ar_mess
 
-def main():
-    # Define server address and port
-    server_address = '127.0.0.1'  # Replace with your server's IP address
-    server_port = 12345           # Replace with your server's port
+SERVER_HOST = '127.0.0.1'
+SERVER_PORT = 5001
+BUFFER_SIZE = 4096  # 4 KB
 
-    # Create a socket object
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def upload_file(filepath):
+    filename = os.path.basename(filepath)
+    with open(filepath, "rb") as f:
+        file_data = f.read()
 
-    try:
-        # Connect to the server
-        client_socket.connect((server_address, server_port))
-        print(f"Connected to server at {server_address}:{server_port}")
-        file_name =  "example.txt"  # Replace with the file you want to send
+    b64_data = base64.b64encode(file_data)
+    filesize = len(b64_data)
 
-        # Send a message to the server
-        message = {
-            "name_of_file": file_name,
-            "file_size": 1234,
-            "update_date": 1633072800
-        }
-        client_socket.sendall(message.encode('utf-8'))
-        print(f"Sent: {message}")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((SERVER_HOST, SERVER_PORT))
 
-        # Receive a response from the server
-        response = client_socket.recv(1024).decode('utf-8')
-        print(f"Received: {response}")
+        # Send header
+        header = f"UPLOAD|{filename}|{filesize}"
+        s.send(header.encode())
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        # Wait for READY
+        response = s.recv(BUFFER_SIZE).decode()
+        if response != "READY": 
+            print("Server did not acknowledge.")
+            return
 
-    finally:
-        # Close the connection
-        client_socket.close()
-        print("Connection closed.")
+        # Send the file in base64-encoded form
+        s.sendall(b64_data)
 
-
-
-
-
+        # Get final response
+        final = s.recv(BUFFER_SIZE).decode()
+        print("Server response:", final)
 
 if __name__ == "__main__":
-    directory()
-    main()
+    upload_file("example.txt")  # Replace with your file path
