@@ -42,6 +42,26 @@ def handle_client(conn):
 
         # 2) After LOGIN_SUCCESS, enter command loop
         user_dir = ensure_user_dir(username)
+
+        msg = conn.recv(BUFFER_SIZE).decode()
+        if msg.startswith("PROJECT_LIST"):
+            # list all projects for the user
+            projects = os.listdir(user_dir)
+            if not projects:
+                conn.send(b"NO_PROJECTS")
+            else:
+                conn.send("|".join(projects).encode())
+                
+        msg = conn.recv(BUFFER_SIZE).decode()
+        if msg.startswith("CREATE_PROJECT"):
+            _, project_type, project_name = msg.split("|")
+            project_path = os.path.join(user_dir, project_name)
+            if os.path.exists(project_path):
+                conn.send(b"PROJECT_EXISTS")
+            else:
+                os.makedirs(project_path)
+                conn.send(b"PROJECT_CREATED")
+
         while True:
             data = conn.recv(BUFFER_SIZE)
             if not data:
@@ -61,7 +81,8 @@ def handle_client(conn):
                     received += conn.recv(BUFFER_SIZE)
 
                 file_bytes = base64.b64decode(received[:b64size])
-                save_path = os.path.join(user_dir, filename)
+                #save_path = os.path.join(user_dir, filename)
+                save_path = os.path.join(project_path, filename)
                 with open(save_path, "wb") as f:
                     f.write(file_bytes)
                 conn.send(b"UPLOAD_SUCCESS")
@@ -69,7 +90,8 @@ def handle_client(conn):
             elif header.startswith("DOWNLOAD"):
                 # header: DOWNLOAD|filename
                 _, filename = header.strip().split("|")
-                file_path = os.path.join(user_dir, filename)
+                #file_path = os.path.join(user_dir, filename)
+                file_path = os.path.join(project_path, filename)
                 if not os.path.exists(file_path):
                     conn.send(b"ERROR|FILE_NOT_FOUND")
                     continue
@@ -81,7 +103,6 @@ def handle_client(conn):
                 ack = conn.recv(BUFFER_SIZE)
                 if ack == b"READY":
                     conn.sendall(b64)
-                    # no further ack for brevity
             else:
                 conn.send(b"UNKNOWN_COMMAND")
 

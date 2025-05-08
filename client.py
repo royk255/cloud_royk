@@ -50,6 +50,30 @@ class CloudClient:
         self.disconnect()
         return False
 
+    def project_directory(self):
+        response = self.send_and_receive("PROJECT_LIST")
+        print("Server:", response)
+        project_name = input("Enter project name or type New to create a new project: ").strip()
+        if project_name.lower() == "new":
+            project_name = input("Enter project name: ").strip()
+            project_type = input("Enter project type:\n1-backup only\n2-save copy of a dircotory").strip()
+            response = self.send_and_receive(f"CREATE_PROJECT|{project_type}|{project_name}")
+            print("Server:", response)
+            if response == "PROJECT_CREATED":
+                print(f"Project '{project_name}' created successfully.")
+            else:
+                print("Failed to create project.")
+        else:
+            response = self.send_and_receive(f"LIST_PROJECTS|{self.username}")
+            print("Server:", response)
+            if response == "PROJECT_NOT_FOUND":
+                print("Project not found.")
+                self.project_directory()
+            else:
+                print(f"entring '{project_name}'.")
+
+
+
     def upload_file(self):
         filepath = input("Enter path to file: ").strip()
         if not os.path.exists(filepath):
@@ -90,7 +114,7 @@ class CloudClient:
                 print("Try again.")
 
         print(f"Welcome, {self.username}!")
-
+        self.project_directory()
         while True:
             cmd = input("Type 'upload' to send a file or 'quit': ").lower()
             if cmd == "upload":
