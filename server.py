@@ -1,51 +1,103 @@
 import socket
 import base64
 import os
+from user_database import check_login, add_user, user_exists
 
-HOST = '0.0.0.0'  # Listen on all interfaces
-PORT = 5001
-BUFFER_SIZE = 4096  # 4 KB chunks
+HOST = '0.0.0.0'
+PORT = 5002
+BUFFER_SIZE = 4096
+USER_ROOT = "user_data"   # top-level directory for all users
+
+# ensure user data root exists
+os.makedirs(USER_ROOT, exist_ok=True)
+
+def ensure_user_dir(username):
+    path = os.path.join(USER_ROOT, username)
+    os.makedirs(path, exist_ok=True)
+    return path
 
 def handle_client(conn):
     try:
-        header = conn.recv(BUFFER_SIZE).decode()
-        if not header.startswith("UPLOAD"):
-            print("Unknown command")
+        # 1) First message must be AUTH: either LOGIN or SIGNUP
+        msg = conn.recv(BUFFER_SIZE).decode()
+        cmd, *parts = msg.strip().split("|")
+
+        if cmd == "SIGNUP":
+            username, password = parts
+            if user_exists(username):
+                return conn.send(b"USERNAME_EXISTS")
+            add_user(username, password)
+            ensure_user_dir(username)
+            conn.send(b"SIGNUP_SUCCESS")
             return
 
-        _, filename, filesize = header.split("|")
-        filesize = int(filesize)
-        print(f"Receiving file: {filename} ({filesize} bytes)")
+        if cmd == "LOGIN":
+            username, password = parts
+            if not check_login(username, password):
+                return conn.send(b"LOGIN_FAIL")
+            # successful login → let them proceed
+            conn.send(b"LOGIN_SUCCESS")
+        else:
+            return conn.send(b"ERROR: AUTH REQUIRED")
 
-        conn.send(b"READY")  # Acknowledge the upload
-
-        received_bytes = 0
-        b64_data = b""
-        while received_bytes < filesize:
-            chunk = conn.recv(BUFFER_SIZE)
-            if not chunk:
+        # 2) After LOGIN_SUCCESS, enter command loop
+        user_dir = ensure_user_dir(username)
+        while True:
+            data = conn.recv(BUFFER_SIZE)
+            if not data:
                 break
-            b64_data += chunk
-            received_bytes += len(chunk)
 
-        file_data = base64.b64decode(b64_data)
-        with open(f"received_{filename}", "wb") as f:
-            f.write(file_data)
+            header = data.decode(errors="ignore")
+            if header.startswith("UPLOAD"):
+                # header format: UPLOAD|filename|size\n
+                line, rest = header.split("\n", 1)
+                _, filename, b64size = line.split("|")
+                b64size = int(b64size)
 
-        print(f"File {filename} received and saved.")
-        conn.send(b"SUCCESS")
+                conn.send(b"READY_TO_RECEIVE")
+                # collect exactly b64size bytes from socket
+                received = rest.encode()  # any leftover after the newline
+                while len(received) < b64size:
+                    received += conn.recv(BUFFER_SIZE)
+
+                file_bytes = base64.b64decode(received[:b64size])
+                save_path = os.path.join(user_dir, filename)
+                with open(save_path, "wb") as f:
+                    f.write(file_bytes)
+                conn.send(b"UPLOAD_SUCCESS")
+
+            elif header.startswith("DOWNLOAD"):
+                # header: DOWNLOAD|filename
+                _, filename = header.strip().split("|")
+                file_path = os.path.join(user_dir, filename)
+                if not os.path.exists(file_path):
+                    conn.send(b"ERROR|FILE_NOT_FOUND")
+                    continue
+
+                with open(file_path, "rb") as f:
+                    b64 = base64.b64encode(f.read())
+                size = len(b64)
+                conn.send(f"DOWNLOAD|{size}".encode())
+                ack = conn.recv(BUFFER_SIZE)
+                if ack == b"READY":
+                    conn.sendall(b64)
+                    # no further ack for brevity
+            else:
+                conn.send(b"UNKNOWN_COMMAND")
+
     except Exception as e:
-        print("Error:", e)
-        conn.send(b"ERROR")
+        print("Server error:", e)
+        try: conn.send(b"ERROR")
+        except: pass
 
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
-        s.listen(1)
+        s.listen()
         print(f"Server listening on {HOST}:{PORT}")
         while True:
             conn, addr = s.accept()
-            print(f"Connection from {addr}")
+            print("→ Connection:", addr)
             handle_client(conn)
             conn.close()
 
