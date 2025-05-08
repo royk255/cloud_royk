@@ -1,31 +1,43 @@
 import os
 import c_db
 import pathlib
-def directory():
-    # Get the current directory
-    current_directory = os.getcwd()
-    
-    # List all files in the directory
-    files = os.listdir(current_directory)
-    
-    # Collect file details
-    file_data = []
-    for file in files:
-        file_path = os.path.join(current_directory, file)
-        if os.path.isfile(file_path):
-            file_info = {
-                "name": file,
-                "size": os.path.getsize(file_path),
-                "last_update": pathlib.Path(file_path).stat().st_mtime,
-                "path": file_path
-            }
-            if file_info["name"] != file_data:
-                file_data.append(file_info)
-    return file_data
-    
-    # Print the collected data
-    for data in file_data:
-        print(f"Name: {data['name']}, Size: {data['size']} bytes, Last Update: {data['last_update']}, Path: {data['path']}")
+class ar_directory:
+    def __init__(self, directory_path=None):
+        self.directory_path = directory_path or os.getcwd()
+        #self.file_data = self.directory()
+        self.file_data = []
+        #print(self.file_data)
+        self.fix_path()
+
+    def fix_path(self): 
+        self.directory_path = self.directory_path.replace("\\", "/")
+
+    def directory(self):
+        # Get the current directory
+        current_directory = self.directory_path or os.getcwd()
+        
+        # List all files in the directory
+        files = os.listdir(current_directory)
+        
+        # Collect file details
+        self.file_data = []
+        for file in files:
+            file_path = os.path.join(current_directory, file)
+            if os.path.isfile(file_path):
+                file_info = {
+                    "name": file,
+                    "size": os.path.getsize(file_path),
+                    "last_update": pathlib.Path(file_path).stat().st_mtime,
+                    "path": file_path
+                }
+                if file_info["name"] != self.file_data:
+                    self.file_data.append(file_info)
+        #return file_data
+        
+        # Print the collected data
+        for data in self.file_data:
+            print(f"Name: {data['name']}, Size: {data['size']} bytes, Last Update: {data['last_update']}, Path: {data['path']}")
+        return self.file_data
 
 def add_to_database(file_data):
     d1 = c_db.data("files_data.db")
@@ -37,5 +49,22 @@ def add_to_database(file_data):
             d1.add_file_record(data["name"], data["size"], data["last_update"])
 
 def get_messge():
-    files = directory()
-    add_to_database(files)
+    #files = directory()
+    #add_to_database(files)
+    pass
+
+
+
+
+def main():
+    # Example usage
+    #directory_path = input("Enter the directory path (or press Enter for current directory): ").strip()
+    #directory_path =  "C:\\Data\\roy\\school\\סייבר\\cloud\\copy"
+    directory_path =  "C:\Data\roy\school\סייבר\cloud\copy"
+    #directory_path =  "C:/Data/roy/school/סייבר/cloud/copy"
+    ar_dir = ar_directory(directory_path)
+    ar_dir.directory()
+    #add_to_database(ar_dir.file_data)
+
+if __name__ == "__main__":
+    main()
