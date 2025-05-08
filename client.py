@@ -1,6 +1,7 @@
 import socket
 import base64
 import os
+import ar_mess
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5002
@@ -74,8 +75,8 @@ class CloudClient:
 
 
 
-    def upload_file(self):
-        filepath = input("Enter path to file: ").strip()
+    def upload_file(self, filepath=None):
+        filepath = filepath or input("Enter path to file: ").strip()
         if not os.path.exists(filepath):
             print("File not found.")
             return
@@ -119,6 +120,8 @@ class CloudClient:
             cmd = input("Type 'upload' to send a file or 'quit': ").lower()
             if cmd == "upload":
                 self.upload_file()
+            elif cmd == "upload all":
+                pass
             elif cmd == "quit":
                 break
             else:
