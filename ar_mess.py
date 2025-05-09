@@ -46,13 +46,20 @@ class ar_directory:
             print(f"Name: {data['name']}, Size: {data['size']} bytes, Last Update: {data['last_update']}, Path: {data['path']}")
         #return self.file_data
 
-def add_to_database(file_data):
-    d1 = c_db.data("files_data.db")
-    for data in file_data:
-        if not d1.is_file_record_exists(data["name"]):
-            d1.add_file_record(data["name"], data["size"], data["last_update"])
-        elif d1.is_file_record_exists(data["name"] and d1.get_file_record() != data["update_date"]):
-            d1.delete_file_record(data["name"])
+    def filter_files(self):
+        d1 = c_db.data("files_data.db")
+        new_files = []
+        for data in self.file_data:
+            if not d1.is_file_record_exists(data["name"]):
+                new_files.append(data)
+            elif d1.is_file_record_exists(data["name"] and d1.get_file_record()[3] != data["update_date"]):
+                new_files.append(data)
+        self.file_data = new_files
+        
+
+    def add_to_database(self):
+        d1 = c_db.data("files_data.db")
+        for data in self.file_data:
             d1.add_file_record(data["name"], data["size"], data["last_update"])
 
 def get_messge():

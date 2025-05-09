@@ -79,7 +79,8 @@ class data:
 if __name__ == "__main__":
     #db_name = "files_data.db"
     d1 = data("files_data.db",reset=True)
-    d1.add_file_record("example.txt", 1024, "2023-10-01 12:00:00")
+    d1.add_file_record("example.txt", 1024, 123456789)
     print(d1.get_file_records())
     #for row in cursor.execute("SELECT * FROM files").fetchall():
     #    print(row)
+#(1, 'example.txt', 1024, 123456789)
