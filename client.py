@@ -1,7 +1,9 @@
 import socket
 import base64
 import os
-import ar_mess
+from ar_mess import ar_directory
+import threading
+from pathlib import Path
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5002
@@ -61,11 +63,18 @@ class CloudClient:
             response = self.send_and_receive(f"CREATE_PROJECT|{project_type}|{project_name}")
             print("Server:", response)
             if response == "PROJECT_CREATED":
+                self.project_directory = input("Enter project directory path: ").strip()
+                if not os.path.exists(self.project_directory):
+                    print("Directory not found.")
+                    while True:
+                        self.project_directory = input("Enter project directory path: ").strip()
+                        if os.path.exists(self.project_directory):
+                            break
                 print(f"Project '{project_name}' created successfully.")
             else:
                 print("Failed to create project.")
         else:
-            response = self.send_and_receive(f"LIST_PROJECTS|{self.username}")
+            response = self.send_and_receive(f"OPEN_PROJECTS|{project_name}")
             print("Server:", response)
             if response == "PROJECT_NOT_FOUND":
                 print("Project not found.")
@@ -104,6 +113,25 @@ class CloudClient:
         else:
             print("Upload failed:", result)
 
+    
+    def upload_all_files(self, file_paths, max_threads=5):
+        threads = []
+
+        for path in file_paths:
+            t = threading.Thread(target=self.upload_file, args=(path,))
+            threads.append(t)
+            t.start()
+
+            # Optional: limit number of concurrent threads
+            while threading.active_count() > max_threads:
+                pass  # Wait for some threads to finish
+
+        # Wait for all to complete
+        for t in threads:
+            t.join()
+
+        print("✅ All uploads finished.")
+        
     def run(self):
         while True:
             action = input("Login or Signup? ").lower()
@@ -116,11 +144,17 @@ class CloudClient:
 
         print(f"Welcome, {self.username}!")
         self.project_directory()
+        
+        
         while True:
             cmd = input("Type 'upload' to send a file or 'quit': ").lower()
             if cmd == "upload":
                 self.upload_file()
             elif cmd == "upload all":
+                x = ar_directory(Path(self.project_directory))
+                files_data = x.return_paths()
+                lis = [data["path"] for data in files_data]
+                self.upload_all_files(lis)
                 pass
             elif cmd == "quit":
                 break

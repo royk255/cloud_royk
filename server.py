@@ -61,7 +61,15 @@ def handle_client(conn):
             else:
                 os.makedirs(project_path)
                 conn.send(b"PROJECT_CREATED")
+        if msg.startswith("OPEN_PROJECT"):
+            _, project_name = msg.split("|")
+            project_path = os.path.join(user_dir, project_name)
+            if not os.path.exists(project_path):
+                conn.send(b"PROJECT_NOT_FOUND")
+                return
+            conn.send(b"PROJECT_OPENED")
 
+            
         while True:
             data = conn.recv(BUFFER_SIZE)
             if not data:
