@@ -71,9 +71,19 @@ class data:
         conn.commit()
         conn.close()
 
+    def print_all_records(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM files")
+        records = cursor.fetchall()
+        for record in records:
+            print(record)
+        conn.close()
+
     def __repr__(self):
         return f"FileRecord(name_of_file={self.name_of_file}, file_size={self.file_size}, update_date={self.update_date})"
 
+    
 
 # Example usage
 if __name__ == "__main__":

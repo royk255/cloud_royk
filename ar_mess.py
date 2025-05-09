@@ -2,6 +2,8 @@ import os
 import c_db
 import pathlib
 from pathlib import Path
+import threading
+import time
 
 class ar_directory:
     def __init__(self, directory_path=None):
@@ -55,12 +57,21 @@ class ar_directory:
             elif d1.is_file_record_exists(data["name"] and d1.get_file_record()[3] != data["update_date"]):
                 new_files.append(data)
         self.file_data = new_files
+        print("Filtered files len:", len(self.file_data))
         
 
     def add_to_database(self):
         d1 = c_db.data("files_data.db")
         for data in self.file_data:
             d1.add_file_record(data["name"], data["size"], data["last_update"])
+    
+    def run(self):
+        self.directory()
+        self.filter_files()
+        self.add_to_database()
+        d1 = c_db.data("files_data.db")
+        d1.print_all_records()
+        
 
 def get_messge():
     #files = directory()
