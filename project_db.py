@@ -4,6 +4,16 @@ import os
 # Path to the JSON file
 JSON_FILE = "project_men.json"
 
+
+def create_json_file():
+    if not os.path.exists(JSON_FILE):
+        with open(JSON_FILE, "w") as file:
+            json.dump({}, file, indent=4)
+        #print(f"Created JSON file: {JSON_FILE}")
+    else:
+        #print(f"JSON file already exists: {JSON_FILE}")
+        pass
+
 # Load JSON data from file
 def load_data():
     if not os.path.exists(JSON_FILE):
@@ -58,8 +68,26 @@ def remove_project(project_name):
             return
     print("Project not found.")
 
+def list_projects():
+    data = load_data()
+    if not data:
+        print("No projects found.")
+        return
+    for path, project_type in data.items():
+        print(f"Project Name: {os.path.basename(path)}, Path: {path}, Type: {project_type}")
+
+
+create_json_file()
+
+
+def main():
+    list_projects()
+
 # Example usage
 if __name__ == "__main__":
+    #main()
+    pass
+    """
     # Add projects
     add_project("/path/to/project1", 1)
     add_project("/path/to/project2", 2)
@@ -76,3 +104,4 @@ if __name__ == "__main__":
     # Remove a project
     remove_project("project1")
     print(project_exists("project1"))  # False
+    """

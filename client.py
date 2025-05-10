@@ -4,8 +4,9 @@ import os
 from ar_mess import ar_directory
 import threading
 from pathlib import Path
-from project_db import TextFileManager
+import project_db
 import time
+#import project_men
 
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
@@ -57,9 +58,9 @@ class CloudClient:
         return False
 
     def project_directory(self):
+        project_db.create_json_file()
         response = self.send_and_receive("PROJECT_LIST")
         print("Server:", response)
-        p1 = TextFileManager()
         self.project_name = input("Enter project name or type New to create a new project: ").strip()
         if self.project_name.lower() == "new":
             self.project_name = input("Enter project name: ").strip()
@@ -71,9 +72,9 @@ class CloudClient:
                 if not os.path.exists(self.project_directory):
                     print("Directory not found.")
                     while True:
-                        self.project_directory = input("Enter project directory path: ").strip()
+                        self.project_directory = Path(input("Enter project directory path: ").strip())
                         if os.path.exists(self.project_directory):
-                            p1.add_line(self.project_directory)
+                            project_db.add_project(self.project_directory, self.project_type)
                             break
                 x = ar_directory(Path(self.project_directory))
                 files_data = x.return_paths()
@@ -91,7 +92,7 @@ class CloudClient:
                 self.project_directory()
             else:
                 print(f"entring '{self.project_name}'.")
-                self.project_directory = p1.get_line_by_last_part(self.project_name)
+                self.project_directory = project_db.get_project_path(self.project_name)
 
     def upload_file(self, path=None):
         try:
