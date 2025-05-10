@@ -70,7 +70,9 @@ class ar_directory:
         self.filter_files()
         self.add_to_database()
         d1 = c_db.data("files_data.db")
+        print("Database records:")
         d1.print_all_records()
+        print("--------------------")
         
 
 def get_messge():
@@ -93,5 +95,5 @@ def main():
     #ar_dir.directory()
     #add_to_database(ar_dir.file_data)
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()

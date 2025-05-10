@@ -1,36 +1,78 @@
+import json
 import os
 
-class TextFileManager:
-    def __init__(self, file_path=None):
-        # Set default file path if none is provided
-        if file_path is None:
-            file_path = os.path.join(os.getcwd(), 'projects_file.txt')
-        self.file_path = file_path
-        # Ensure the file exists
-        if not os.path.exists(self.file_path):
-            with open(self.file_path, 'w') as f:
-                pass
+# Path to the JSON file
+JSON_FILE = "project_men.json"
 
-    def add_line(self, line):
-        """Add a line to the text file."""
-        with open(self.file_path, 'a') as f:
-            f.write(line + '\n')
+# Load JSON data from file
+def load_data():
+    if not os.path.exists(JSON_FILE):
+        return {}
+    with open(JSON_FILE, "r") as file:
+        return json.load(file) 
 
-    def get_line_by_last_part(self, last_part):
-        """Get a line that ends with the specified last part."""
-        with open(self.file_path, 'r') as f:
-            for line in f:
-                if line.rstrip().endswith("\\" + last_part) or line.rstrip().endswith("//" + last_part):
-                    return line.rstrip()
-        return None
+# Save JSON data to file
+def save_data(data):
+    with open(JSON_FILE, "w") as file:
+        json.dump(data, file, indent=4)
 
-    def remove_line_by_filter(self, filter_text):
-        """Remove all lines containing the specified filter text."""
-        with open(self.file_path, 'r') as f:
-            lines = f.readlines()
-        with open(self.file_path, 'w') as f:
-            for line in lines:
-                if filter_text not in line:
-                    f.write(line)
+# Check if a project exists
+def project_exists(project_name):
+    data = load_data()
+    return any(project_name == os.path.basename(path) for path in data)
 
-    
+# Get project path by name
+def get_project_path(project_name):
+    data = load_data()
+    for path, project_type in data.items():
+        if os.path.basename(path) == project_name:
+            return path
+    return None
+
+# Get project type by name
+def get_project_type(project_name):
+    data = load_data()
+    for path, project_type in data.items():
+        if os.path.basename(path) == project_name:
+            return project_type
+    return None
+
+# Add a new project
+def add_project(project_path, project_type):
+    data = load_data()
+    if project_path in data:
+        print("Project already exists.")
+        return
+    data[project_path] = project_type
+    save_data(data)
+    print("Project added successfully.")
+
+# Remove a project
+def remove_project(project_name):
+    data = load_data()
+    for path in list(data.keys()):
+        if os.path.basename(path) == project_name:
+            del data[path]
+            save_data(data)
+            print("Project removed successfully.")
+            return
+    print("Project not found.")
+
+# Example usage
+if __name__ == "__main__":
+    # Add projects
+    add_project("/path/to/project1", 1)
+    add_project("/path/to/project2", 2)
+
+    # Check if a project exists
+    print(project_exists("project1"))  # True
+
+    # Get project path
+    print(get_project_path("project1"))  # /path/to/project1
+
+    # Get project type
+    print(get_project_type("project1"))  # 1
+
+    # Remove a project
+    remove_project("project1")
+    print(project_exists("project1"))  # False

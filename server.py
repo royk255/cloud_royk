@@ -40,10 +40,9 @@ def handle_client(conn, addr):
             if not check_login(username, password):
                 return conn.send(b"LOGIN_FAIL")
             conn.send(b"LOGIN_SUCCESS")
+            user_dir = ensure_user_dir(username)
         else:
             return conn.send(b"ERROR: AUTH REQUIRED")
-
-        user_dir = ensure_user_dir(username)
 
         while True:
             msg = conn.recv(BUFFER_SIZE).decode()
@@ -71,11 +70,15 @@ def handle_client(conn, addr):
                 project_path = os.path.join(user_dir, project_name)
                 if not os.path.exists(project_path):
                     conn.send(b"PROJECT_NOT_FOUND")
-                    return
-                conn.send(b"PROJECT_OPENED")
-
+                else:
+                    conn.send(b"PROJECT_OPENED")
             elif msg.startswith("UPLOAD"):
                 try:
+                    # Make sure we have an active project
+                    if project_path is None:
+                        conn.send(b"ERROR|NO_ACTIVE_PROJECT")
+                        continue
+                        
                     # header: UPLOAD|filename|size
                     header_parts = msg.split("|")
                     if len(header_parts) != 3:
@@ -93,19 +96,29 @@ def handle_client(conn, addr):
                             break
                         received += chunk
 
-                    file_bytes = base64.b64decode(received[:b64size])
+                    file_bytes = base64.b64decode(received)
                     save_path = os.path.join(project_path, filename)
+                    
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    
                     with open(save_path, "wb") as f:
                         f.write(file_bytes)
 
                     conn.send(b"UPLOAD_SUCCESS")
+                    print(f"[+] File '{filename}' uploaded to {project_path}")
+                    
                 except Exception as e:
                     print(f"[UPLOAD ERROR] {e}")
-                    conn.send(b"ERROR|UPLOAD_FAILED")
+                    conn.send(f"ERROR|UPLOAD_FAILED: {str(e)}".encode())
 
             elif msg.startswith("DOWNLOAD"):
                 try:
                     _, filename = msg.strip().split("|")
+                    if project_path is None:
+                        conn.send(b"ERROR|NO_ACTIVE_PROJECT")
+                        continue
+                        
                     file_path = os.path.join(project_path, filename)
                     if not os.path.exists(file_path):
                         conn.send(b"ERROR|FILE_NOT_FOUND")
@@ -128,7 +141,7 @@ def handle_client(conn, addr):
     except Exception as e:
         print(f"[SERVER ERROR] {e}")
         try:
-            conn.send(b"ERROR")
+            conn.send(f"ERROR|{str(e)}".encode())
         except:
             pass
     finally:

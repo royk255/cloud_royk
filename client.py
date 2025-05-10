@@ -6,9 +6,8 @@ import threading
 from pathlib import Path
 from project_db import TextFileManager
 import time
-#SERVER_HOST = '127.0.0.1'
-#SERVER_PORT = 5002
-SERVER_HOST = 'localhost'  # or your server IP
+
+SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
 BUFFER_SIZE = 4096
 
@@ -40,6 +39,7 @@ class CloudClient:
         print("Server:", response)
         if response == "LOGIN_SUCCESS":
             self.username = username
+            self.password = password
             return True
         self.disconnect()
         return False
@@ -60,11 +60,11 @@ class CloudClient:
         response = self.send_and_receive("PROJECT_LIST")
         print("Server:", response)
         p1 = TextFileManager()
-        project_name = input("Enter project name or type New to create a new project: ").strip()
-        if project_name.lower() == "new":
-            project_name = input("Enter project name: ").strip()
-            project_type = input("Enter project type:\n1-backup only\n2-save copy of a dircotory").strip()
-            response = self.send_and_receive(f"CREATE_PROJECT|{project_type}|{project_name}")
+        self.project_name = input("Enter project name or type New to create a new project: ").strip()
+        if self.project_name.lower() == "new":
+            self.project_name = input("Enter project name: ").strip()
+            self.project_type = input("Enter project type:\n1-backup only\n2-save copy of a dircotory").strip()
+            response = self.send_and_receive(f"CREATE_PROJECT|{self.project_type}|{self.project_name}")
             print("Server:", response)
             if response == "PROJECT_CREATED":
                 self.project_directory = input("Enter project directory path: ").strip()
@@ -79,61 +79,67 @@ class CloudClient:
                 files_data = x.return_paths()
                 lis = [data["path"] for data in files_data]
                 self.upload_all_files(lis)
-                print(f"Project '{project_name}' created successfully.")
+                print(f"Project '{self.project_name}' created successfully.")
             else:
                 print("Failed to create project.")
-                
+
         else:
-            response = self.send_and_receive(f"OPEN_PROJECTS|{project_name}")
+            response = self.send_and_receive(f"OPEN_PROJECT|{self.project_name}")
             print("Server:", response)
             if response == "PROJECT_NOT_FOUND":
                 print("Project not found.")
                 self.project_directory()
             else:
-                print(f"entring '{project_name}'.")
-                self.project_directory = p1.get_line_by_last_part(project_name)
-                
-
-
+                print(f"entring '{self.project_name}'.")
+                self.project_directory = p1.get_line_by_last_part(self.project_name)
 
     def upload_file(self, path=None):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((SERVER_HOST, SERVER_PORT))
+            filename = os.path.basename(path)
+            with open(path, "rb") as f:
+                file_bytes = f.read()
+            b64 = base64.b64encode(file_bytes).decode()
+            
+            # Create a new socket for each upload to avoid threading conflicts
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as upload_sock:
+                upload_sock.connect((self.host, self.port))
+                
+                # First login again to establish identity
+                upload_sock.send(f"LOGIN|{self.username}|{self.password}".encode())  
+                response = upload_sock.recv(BUFFER_SIZE).decode().strip()
+                if response != "LOGIN_SUCCESS":
+                    raise Exception(f"Authentication failed: {response}")
+                    
+                # Send project context
+                current_project = os.path.basename(self.project_directory)
+                upload_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
+                response = upload_sock.recv(BUFFER_SIZE).decode().strip()
+                if response != "PROJECT_OPENED":
+                    raise Exception(f"Failed to open project context: {response}")
+                
+                # Now send upload command with correct format matching server expectations
+                header = f"UPLOAD|{filename}|{len(b64)}"
+                upload_sock.sendall((header).encode())
 
-                filename = os.path.basename(path)
-                filesize = os.path.getsize(path)
-
-                # Send upload header (simple protocol: UPLOAD|filename|filesize\n)
-                header = f"UPLOAD|{filename}|{filesize}\n"
-                s.sendall(header.encode())
-
-                # Wait for server "OK"
-                ack = s.recv(1024).decode().strip()
-                if ack != "OK":
+                ack = upload_sock.recv(BUFFER_SIZE).decode().strip()
+                if ack != "READY_TO_RECEIVE":
                     raise Exception(f"Server did not accept file: {ack}")
 
-                # Send file contents as base64
-                with open(path, "rb") as f:
-                    while chunk := f.read(4096):
-                        encoded = base64.b64encode(chunk)
-                        s.sendall(encoded + b"\n")
+                upload_sock.sendall(b64.encode())
 
-                # Optionally wait for a final confirmation
-                result = s.recv(1024).decode().strip()
-                if result != "DONE":
-                    raise Exception(f"Upload failed: {result}")
+                response = upload_sock.recv(BUFFER_SIZE).decode().strip()
+                if response != "UPLOAD_SUCCESS":
+                    raise Exception(f"Upload failed: {response}")
 
-                print(f"[{threading.current_thread().name}] Uploaded: {filename}")
+            print(f"[{threading.current_thread().name}] Uploaded: {filename}")
 
         except Exception as e:
             print(f"[ERROR] Failed to upload {path}: {e}")
 
-        
     def upload_all_files(self, file_paths, max_threads=5):
         semaphore = threading.Semaphore(max_threads)
         threads = []
-        
+
         def thread_upload(path):
             with semaphore:
                 try:
@@ -149,8 +155,8 @@ class CloudClient:
         for t in threads:
             t.join()
 
-    print("✅ All uploads finished.")
-        
+        print("✅ All uploads finished.")
+
     def run(self):
         while True:
             action = input("Login or Signup? ").lower()
@@ -163,31 +169,24 @@ class CloudClient:
 
         print(f"Welcome, {self.username}!")
         self.project_directory()
-        
-        
+
         while True:
-            cmd = input("Type 'upload' to send a file or 'quit': ").lower()
+            cmd = input("Type 'upload' to send a file, 'upload all', or 'quit': ").lower()
             if cmd == "upload":
-                self.upload_file()
+                path = input("Enter full path to file: ")
+                self.upload_file(path)
             elif cmd == "upload all":
                 d1 = ar_directory(Path(self.project_directory))
-                d1.run()
+                files = d1.return_paths()
+                file_paths = [file['path'] for file in files]
+                self.upload_all_files(file_paths)
             elif cmd == "quit":
                 break
             else:
                 print("Unknown command.")
 
-        self.disconnect()
+            self.disconnect()
 
 if __name__ == "__main__":
     client = CloudClient()
     client.run()
-
-
-
-
-"""
-x = ar_directory(Path(self.project_directory))
-                files_data = x.return_paths()
-                lis = [data["path"] for data in files_data]
-                self.upload_all_files(lis)"""
