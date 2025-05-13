@@ -6,7 +6,6 @@ import threading
 from pathlib import Path
 import project_db
 import time
-#import project_men
 
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
@@ -58,7 +57,8 @@ class CloudClient:
         return False
 
     def project_directory(self):
-        project_db.create_json_file()
+        #project_db.create_json_file()
+        p1 = project_db.TextFileManager()
         response = self.send_and_receive("PROJECT_LIST")
         print("Server:", response)
         self.project_name = input("Enter project name or type New to create a new project: ").strip()
@@ -74,8 +74,8 @@ class CloudClient:
                     while True:
                         self.project_directory = Path(input("Enter project directory path: ").strip())
                         if os.path.exists(self.project_directory):
-                            project_db.add_project(self.project_directory, self.project_type)
                             break
+                p1.add_project(self.project_name, self.project_directory, self.project_type)
                 x = ar_directory(Path(self.project_directory))
                 files_data = x.return_paths()
                 lis = [data["path"] for data in files_data]
@@ -92,7 +92,7 @@ class CloudClient:
                 self.project_directory()
             else:
                 print(f"entring '{self.project_name}'.")
-                self.project_directory = project_db.get_project_path(self.project_name)
+                self.project_directory = p1.get_project_path(self.project_name)
 
     def upload_file(self, path=None):
         try:
@@ -100,24 +100,24 @@ class CloudClient:
             with open(path, "rb") as f:
                 file_bytes = f.read()
             b64 = base64.b64encode(file_bytes).decode()
-            
+
             # Create a new socket for each upload to avoid threading conflicts
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as upload_sock:
                 upload_sock.connect((self.host, self.port))
-                
+
                 # First login again to establish identity
-                upload_sock.send(f"LOGIN|{self.username}|{self.password}".encode())  
+                upload_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "LOGIN_SUCCESS":
                     raise Exception(f"Authentication failed: {response}")
-                    
+
                 # Send project context
                 current_project = os.path.basename(self.project_directory)
                 upload_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "PROJECT_OPENED":
                     raise Exception(f"Failed to open project context: {response}")
-                
+
                 # Now send upload command with correct format matching server expectations
                 header = f"UPLOAD|{filename}|{len(b64)}"
                 upload_sock.sendall((header).encode())
