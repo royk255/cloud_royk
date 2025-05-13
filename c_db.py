@@ -5,8 +5,7 @@ class data:
     def __init__(self,db_name,reset=False):
         self.db_name = db_name
         self.reset = reset
-        if reset:
-            self.initialize_database()
+        self.initialize_database()
 
     def initialize_database(self):
         conn = sqlite3.connect(self.db_name)

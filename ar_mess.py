@@ -54,7 +54,7 @@ class ar_directory:
         for data in self.file_data:
             if not d1.is_file_record_exists(data["name"]):
                 new_files.append(data)
-            elif d1.is_file_record_exists(data["name"] and d1.get_file_record()[3] != data["update_date"]):
+            elif d1.is_file_record_exists(data["name"] and d1.get_file_record(data["name"])[3] != data["last_update"]):
                 new_files.append(data)
         self.file_data = new_files
         print("Filtered files len:", len(self.file_data))
@@ -73,6 +73,7 @@ class ar_directory:
         print("Database records:")
         d1.print_all_records()
         print("--------------------")
+        return self.file_data
         
 
 def get_messge():

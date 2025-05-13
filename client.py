@@ -178,7 +178,7 @@ class CloudClient:
                 self.upload_file(path)
             elif cmd == "upload all":
                 d1 = ar_directory(Path(self.project_directory))
-                files = d1.return_paths()
+                files = d1.run()
                 file_paths = [file['path'] for file in files]
                 self.upload_all_files(file_paths)
             elif cmd == "quit":
@@ -191,3 +191,10 @@ class CloudClient:
 if __name__ == "__main__":
     client = CloudClient()
     client.run()
+
+
+
+"""
+d1 = ar_directory(Path(self.project_directory))
+                files = d1.return_paths()
+                file_paths = [file['path'] for file in files]"""
