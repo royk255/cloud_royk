@@ -76,25 +76,15 @@ class ar_directory:
         return self.file_data
         
 
-def get_messge():
-    #files = directory()
-    #add_to_database(files)
-    pass
 
 
 def main():
-    # Example usage
-    #directory_path = input("Enter the directory path (or press Enter for current directory): ").strip()
-    #directory_path =  "C:\\Data\\roy\\school\\סייבר\\cloud\\copy"
     directory_path =  Path(r"C:\Data\roy\school\cyber\cloud\copy") 
-    #directory_path =  "C:/Data/roy/school/cyber/cloud/copy"
-    #ar_dir = ar_directory(directory_path)
     x = ar_directory(directory_path)
     y = x.return_paths()
     for data in y:
         print(f"Name: {data['name']}, Size: {data['size']} bytes, Last Update: {data['last_update']}, Path: {data['path']}")
-    #ar_dir.directory()
-    #add_to_database(ar_dir.file_data)
+
 
 #if __name__ == "__main__":
 #    main()

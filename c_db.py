@@ -88,16 +88,3 @@ class data:
 
     def __repr__(self):
         return f"FileRecord(name_of_file={self.name_of_file}, file_size={self.file_size}, update_date={self.update_date})"
-
-    
-
-# Example usage
-if __name__ == "__main__":
-    #db_name = "files_data.db"
-    d1 = data("files_data.db",reset=True)
-    d1.print_all_records()
-    #d1.add_file_record("example.txt", 1024, 123456789)
-    #print(d1.get_file_records())
-    #for row in cursor.execute("SELECT * FROM files").fetchall():
-    #    print(row)
-#(1, 'example.txt', 1024, 123456789)

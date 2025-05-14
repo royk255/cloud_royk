@@ -35,4 +35,4 @@ class TextFileManager:
         return self.data[project_name]["path"]
 
 
-# path: type
+# {name : {path: type}}
