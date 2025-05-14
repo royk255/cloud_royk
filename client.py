@@ -44,10 +44,23 @@ class CloudClient:
         self.disconnect()
         return False
 
+    def check_text(self, text):
+        alowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+        if len(text) == 0:
+            return False
+        for char in text:
+            if char not in alowed_chars:
+                return False
+        return True
+        
+
     def signup(self):
         self.connect()
         username = input("Choose username: ")
         password = input("Choose password: ")
+        if self.check_text(username) == False or self.check_text(password) == False:
+            print("Username or password cant be use, pls try again.")
+            self.signup()
         response = self.send_and_receive(f"SIGNUP|{username}|{password}")
         print("Server:", response)
         if response == "SIGNUP_SUCCESS":
@@ -64,7 +77,7 @@ class CloudClient:
         self.project_name = input("Enter project name or type New to create a new project: ").strip()
         if self.project_name.lower() == "new":
             self.project_name = input("Enter project name: ").strip()
-            self.project_type = input("Enter project type:\n1-backup only\n2-save copy of a dircotory").strip()
+            self.project_type = 1
             response = self.send_and_receive(f"CREATE_PROJECT|{self.project_type}|{self.project_name}")
             print("Server:", response)
             if response == "PROJECT_CREATED":
@@ -191,10 +204,3 @@ class CloudClient:
 if __name__ == "__main__":
     client = CloudClient()
     client.run()
-
-
-
-"""
-d1 = ar_directory(Path(self.project_directory))
-                files = d1.return_paths()
-                file_paths = [file['path'] for file in files]"""

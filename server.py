@@ -31,11 +31,10 @@ def handle_client(conn, addr):
             if user_exists(username):
                 return conn.send(b"USERNAME_EXISTS")
             add_user(username, password)
-            ensure_user_dir(username)
+            user_dir = ensure_user_dir(username)
             conn.send(b"SIGNUP_SUCCESS")
-            return
-
-        if cmd == "LOGIN":
+        
+        elif cmd == "LOGIN":
             username, password = parts
             if not check_login(username, password):
                 return conn.send(b"LOGIN_FAIL")
