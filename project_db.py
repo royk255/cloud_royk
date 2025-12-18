@@ -31,7 +31,7 @@ class TextFileManager:
             print("Project added.")
 
     def get_project_path(self, project_name):
-        data = self.load_data()
+        self.data = self.load_data()       # error here forgot to write self
         return self.data[project_name]["path"]
 
 

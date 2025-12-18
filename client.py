@@ -54,6 +54,8 @@ class CloudClient:
         return True
         
 
+    #fix max length of username and password and password
+
     def signup(self):
         self.connect()
         username = input("Choose username: ")
@@ -91,7 +93,7 @@ class CloudClient:
                 p1.add_project(self.project_name, self.project_directory, self.project_type)
                 x = ar_directory(Path(self.project_directory))
                 files_data = x.return_paths()
-                lis = [data["path"] for data in files_data]
+                lis = [data["path"] for data in files_data]  
                 self.upload_all_files(lis)
                 print(f"Project '{self.project_name}' created successfully.")
             else:
@@ -131,7 +133,7 @@ class CloudClient:
                 if response != "PROJECT_OPENED":
                     raise Exception(f"Failed to open project context: {response}")
 
-                # Now send upload command with correct format matching server expectations
+                #send upload command 
                 header = f"UPLOAD|{filename}|{len(b64)}"
                 upload_sock.sendall((header).encode())
 

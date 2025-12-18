@@ -105,7 +105,7 @@ def handle_client(conn, addr):
                         f.write(file_bytes)
 
                     conn.send(b"UPLOAD_SUCCESS")
-                    print(f"[+] File '{filename}' uploaded to {project_path}")
+                    print(f"[+] File '{filename}' uploaded to {project_path}")    #  cmd|par1|par2
                     
                 except Exception as e:
                     print(f"[UPLOAD ERROR] {e}")
