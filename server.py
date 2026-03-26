@@ -2,7 +2,11 @@ import socket
 import base64
 import os
 import threading
-from user_database import check_login, add_user, user_exists
+#from user_database import check_login, add_user, user_exists
+from ar_mess import DatabaseManager as d_manager
+from ar_mess import JSONConfig as j_config
+
+
 
 HOST = '0.0.0.0'
 PORT = 5002
@@ -22,24 +26,65 @@ def handle_client(conn, addr):
     try:
         username = None
         project_path = None
-
+        
+        user_dir = None
         msg = conn.recv(BUFFER_SIZE).decode()
         cmd, *parts = msg.strip().split("|")
+        db_u = d_manager("user_data.db")
 
+        """"
         if cmd == "SIGNUP":
-            username, password = parts
-            if user_exists(username):
+            username, password, email = parts
+            if db_u.user_exists(username):
                 return conn.send(b"USERNAME_EXISTS")
-            add_user(username, password)
+            db_u.add_user(username, password, email)
             user_dir = ensure_user_dir(username)
             conn.send(b"SIGNUP_SUCCESS")
-        
-        elif cmd == "LOGIN":
+        """
+        if cmd == "LOGIN":
             username, password = parts
-            if not check_login(username, password):
+            if not db_u.check_login(username, password):
                 return conn.send(b"LOGIN_FAIL")
             conn.send(b"LOGIN_SUCCESS")
             user_dir = ensure_user_dir(username)
+
+        #elif cmd.startswith("CREATE_PROJECT"):
+        elif cmd == "CREATE_PROJECT":
+                conn.send(b"bla")
+                msg_2 = conn.recv(BUFFER_SIZE).decode()
+                cmd_2, *parts_2 = msg_2.strip().split("|")
+                all_good =True
+                if cmd_2 == "SIGNUP":                #realy not sure
+                    username, password, email = parts_2
+                    if db_u.user_exists(username):
+                        conn.send(b"USERNAME_EXISTS")
+                        #all_good = False
+                    db_u.add_user(username, password, email)
+                    user_dir = ensure_user_dir(username)
+                    conn.send(b"SIGNUP_SUCCESS")
+                else:
+                    conn.send(b"ERROR: AUTH REQUIRED")
+                    #all_good = False
+                _, project_name, ip, space,price, code = msg.split("|")
+                project_path = os.path.join(user_dir, project_name)
+                if os.path.exists(project_path):
+                    conn.send(b"PROJECT_EXISTS")
+                else:
+                    if code == "0":
+                        db_u.add_to_pay(username,price)
+                        j_config("config.json").set_value("space_left", j_config("config.json").get_value("space_left") - int(space))
+                    elif code != j_config("config.json").get_value("code"):
+                        conn.send(b"INVALID_CODE")
+                        alll_good = False
+                    if int(space) > j_config("config.json").get_value("space_left"):
+                        conn.send(b"NOT_ENOUGH_SPACE")
+                        all_good = False
+                    if all_good:
+                        os.makedirs(project_path)
+                        conn.send(b"PROJECT_CREATED")
+                    else:
+                        conn.send(b"PROJECT_CREATION_FAILED")
+
         else:
             return conn.send(b"ERROR: AUTH REQUIRED")
 
@@ -48,21 +93,14 @@ def handle_client(conn, addr):
             if not msg:
                 break
 
-            if msg.startswith("PROJECT_LIST"):
+            if msg.startswith("PROJECT_LIST"):    #dosnt need to happen
                 projects = os.listdir(user_dir)
                 if not projects:
                     conn.send(b"NO_PROJECTS")
                 else:
                     conn.send("|".join(projects).encode())
 
-            elif msg.startswith("CREATE_PROJECT"):
-                _, project_type, project_name = msg.split("|")
-                project_path = os.path.join(user_dir, project_name)
-                if os.path.exists(project_path):
-                    conn.send(b"PROJECT_EXISTS")
-                else:
-                    os.makedirs(project_path)
-                    conn.send(b"PROJECT_CREATED")
+            #signup was here
 
             elif msg.startswith("OPEN_PROJECT"):
                 _, project_name = msg.split("|")
@@ -146,6 +184,11 @@ def handle_client(conn, addr):
     finally:
         conn.close()
         print(f"[-] Disconnected: {addr}")
+
+
+
+
+
 
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

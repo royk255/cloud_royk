@@ -4,8 +4,10 @@ import os
 from ar_mess import ar_directory
 import threading
 from pathlib import Path
+from main_menu import mange
 import project_db
 import time
+from ar_mess import DatabaseManager as d_manager
 
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
@@ -31,7 +33,7 @@ class CloudClient:
         self.sock.send(message.encode())
         return self.sock.recv(BUFFER_SIZE).decode()
 
-    def login(self):
+    def login(self):   #fix in servear
         self.connect()
         username = input("Username: ")
         password = input("Password: ")
@@ -56,27 +58,77 @@ class CloudClient:
 
     #fix max length of username and password and password
 
-    def signup(self):
-        self.connect()
+    def signup(self):   #need to add email
+        #self.connect()
         username = input("Choose username: ")
         password = input("Choose password: ")
+        email = input("Enter your email: ")
         if self.check_text(username) == False or self.check_text(password) == False:
             print("Username or password cant be use, pls try again.")
             self.signup()
-        response = self.send_and_receive(f"SIGNUP|{username}|{password}")
+        response = self.send_and_receive(f"SIGNUP|{username}|{password}|{email}")
         print("Server:", response)
         if response == "SIGNUP_SUCCESS":
             self.username = username
+            self.password = password
             return True
         self.disconnect()
         return False
 
+#C:\Data\roy\school\cyber\cloud\copy
     def project_directory(self):
+        p1 = d_manager("project_data.db")
+        p1.print_all_projects()
+        self.project_name = input("Enter project name or type new to create a new project: ").strip()
+        if self.project_name == "new" or True:
+            p_name = input("Enter project name: ").strip()
+            friend = "y" #input("do you have an ip alrady? (y/n) ").strip().lower()
+            if friend == "y":
+                self.host = "127.0.0.1" #input("Enter the ip: ").strip()  
+                space = 1 #int(input("Enter the space you want to rent in GB: ").strip())
+                code = 0 #int(input("Do you have a code? (Write code for yes, 0 for no): ").strip())
+                path = "C:\\Data\\roy\\school\\cyber\\cloud\\copy" #input("Enter the path of the project: ").strip()
+                ok = True
+                if code != 0 and ok:
+                    response = self.send_and_receive(f"CREATE_PROJECT|{p_name}|{self.host}|{space}|0|{code}")
+                    if self.signup() == False:
+                        print("Signup failed, try again.")
+                        self.project_directory()
+                    print("Server:", response)
+                    if response == "PROJECT_CREATED":
+                        p1.add_project(p_name, self.username, self.host, 0,0, space, path)
+                    else:
+                        print("--------------------------------")
+                        self.project_directory()
+                else:
+                    price = 1 #int(input("Enter the price you want to pay for 1 GB per month: ").strip())
+                    response = self.send_and_receive(f"CREATE_PROJECT|{p_name}|{self.host}|{space}|{price}|0")
+                    if self.signup() == False:
+                        print("Signup failed, try again.")
+                        self.project_directory()
+                    #print("Server:", response)
+                    #if response == "PROJECT_CREATED":
+                    else:
+                        p1.add_project(p_name, self.username, self.host, price,0, space, path)
+                self.project_directory = path
+            else:
+                #rent a server from the market
+                pass
+        else:
+            ip = p1.get_ip_by_project(self.project_name)
+            if ip is not None:
+                self.host = ip
+                print(f"entring '{self.project_name}'.")
+                self.project_directory = p1.get_project_path(self.project_name)
+                self.connect() #need to continue
+
+
+    def project_directory_2(self):
         #project_db.create_json_file()
         p1 = project_db.TextFileManager()
         response = self.send_and_receive("PROJECT_LIST")
         print("Server:", response)
-        self.project_name = input("Enter project name or type New to create a new project: ").strip()
+        self.project_name = input("Enter project name or type New to create a new project: ").strip()     
         if self.project_name.lower() == "new":
             self.project_name = input("Enter project name: ").strip()
             self.project_type = 1
@@ -173,8 +225,70 @@ class CloudClient:
 
         print("✅ All uploads finished.")
 
+
+        def download_file(self, filename):
+            try:
+                # Create a new socket for each download to avoid threading conflicts
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as download_sock:
+                    download_sock.connect((self.host, self.port))
+
+                    # First login again to establish identity
+                    download_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
+                    response = download_sock.recv(BUFFER_SIZE).decode().strip()
+                    if response != "LOGIN_SUCCESS":
+                        raise Exception(f"Authentication failed: {response}")
+
+                    # Send project context
+                    download_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
+                    response = download_sock.recv(BUFFER_SIZE).decode().strip()
+                    if response != "PROJECT_OPENED":
+                        raise Exception(f"Failed to open project context: {response}")
+
+                    # Send download command
+                    download_sock.send(f"DOWNLOAD|{filename}".encode())
+                    file_data = download_sock.recv(BUFFER_SIZE)
+
+                    if file_data:
+                        with open(filename, "wb") as f:
+                            f.write(file_data)
+                        print(f"Downloaded: {filename}")
+                    else:
+                        print(f"Failed to download: {filename}")
+
+            except Exception as e:
+                print(f"[ERROR] Failed to download {filename}: {e}")
+
+        def download_project(self):
+            # Assuming we have a method to get all file names in the project
+            file_list = self.get_project_file_list()  # This method should return a list of filenames
+            threads = []
+
+            for filename in file_list:
+                t = threading.Thread(target=self.download_file, args=(filename,))
+                threads.append(t)
+                t.start()
+
+            for t in threads:
+                t.join()
+
+            print("✅ All downloads finished.")
+
+
+
     def run(self):
+        self.connect()
+        """
         while True:
+            
+            where = input("do you want to manage your server or your project? (manage/projects) ").lower()
+            if where == "manage":
+                m1 = mange()
+                m1.choose()
+                break
+                continue
+            break
+            #need to first gives a list of projects
+            
             action = input("Login or Signup? ").lower()
             if action == "login" and self.login():
                 break
@@ -182,7 +296,7 @@ class CloudClient:
                 break
             else:
                 print("Try again.")
-
+            """
         print(f"Welcome, {self.username}!")
         self.project_directory()
 
@@ -196,6 +310,11 @@ class CloudClient:
                 files = d1.run()
                 file_paths = [file['path'] for file in files]
                 self.upload_all_files(file_paths)
+            elif cmd == "download":
+                filename = input("Enter filename to download: ")
+                self.download_file(filename)
+            elif cmd == "download all":
+                self.download_project()
             elif cmd == "quit":
                 break
             else:
