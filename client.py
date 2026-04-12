@@ -80,8 +80,8 @@ class CloudClient:
         p1 = d_manager("project_data.db")
         p1.print_all_projects()
         self.project_name = input("Enter project name or type new to create a new project: ").strip()
-        if self.project_name == "new" or True:
-            p_name = input("Enter project name: ").strip()
+        if self.project_name == "new":
+            self.project_name = input("Enter project name: ").strip()
             friend = "y" #input("do you have an ip alrady? (y/n) ").strip().lower()
             if friend == "y":
                 self.host = "127.0.0.1" #input("Enter the ip: ").strip()  
@@ -90,26 +90,26 @@ class CloudClient:
                 path = "C:\\Data\\roy\\school\\cyber\\cloud\\copy" #input("Enter the path of the project: ").strip()
                 ok = True
                 if code != 0 and ok:
-                    response = self.send_and_receive(f"CREATE_PROJECT|{p_name}|{self.host}|{space}|0|{code}")
+                    response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|0|{code}")
                     if self.signup() == False:
                         print("Signup failed, try again.")
                         self.project_directory()
                     print("Server:", response)
                     if response == "PROJECT_CREATED":
-                        p1.add_project(p_name, self.username, self.host, 0,0, space, path)
+                        p1.add_project(self.project_name, self.username, self.host, 0,0, space, path)
                     else:
                         print("--------------------------------")
                         self.project_directory()
                 else:
                     price = 1 #int(input("Enter the price you want to pay for 1 GB per month: ").strip())
-                    response = self.send_and_receive(f"CREATE_PROJECT|{p_name}|{self.host}|{space}|{price}|0")
+                    response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|{price}|0")
                     if self.signup() == False:
                         print("Signup failed, try again.")
                         self.project_directory()
                     #print("Server:", response)
                     #if response == "PROJECT_CREATED":
                     else:
-                        p1.add_project(p_name, self.username, self.host, price,0, space, path)
+                        p1.add_project(self.project_name, self.username, self.host, price,0, space, path)
                 self.project_directory = path
             else:
                 #rent a server from the market
@@ -121,8 +121,31 @@ class CloudClient:
                 print(f"entring '{self.project_name}'.")
                 self.project_directory = p1.get_project_path(self.project_name)
                 self.connect() #need to continue
+                username = input("Username: ")
+                password = input("Password: ")
+                response = self.send_and_receive(f"LOGIN|{username}|{password}")
+                if response == "LOGIN_SUCCESS":
+                    self.username = username
+                    self.password = password
+                    print(f"Successfully logged in to project '{self.project_name}' at {self.host}.")
+                    print("initialzing project")
+                    response = self.send_and_receive(f"OPEN_PROJECT|{self.project_name}")
+                    if response == "PROJECT_OPENED":
+                        print(f"Successfully connected to project '{self.project_name}' at {self.host}.")
+                    else:
+                        print(f"Failed to open project '{self.project_name}': {response}")
+                        self.disconnect()
+                        return
+                else:
+                    print(f"Failed to log in to project '{self.project_name}': {response}")
+                    self.disconnect()
+                    self.project_directory()
+            else:
+                print("Project not found.")
+                self.project_directory()
 
 
+    """
     def project_directory_2(self):
         #project_db.create_json_file()
         p1 = project_db.TextFileManager()
@@ -160,9 +183,10 @@ class CloudClient:
             else:
                 print(f"entring '{self.project_name}'.")
                 self.project_directory = p1.get_project_path(self.project_name)
-
-    def upload_file(self, path=None):
+        """
+    def upload_file(self,path, d1):
         try:
+            #filename = os.path.basename(path)
             filename = os.path.basename(path)
             with open(path, "rb") as f:
                 file_bytes = f.read()
@@ -189,29 +213,28 @@ class CloudClient:
                 header = f"UPLOAD|{filename}|{len(b64)}"
                 upload_sock.sendall((header).encode())
 
-                ack = upload_sock.recv(BUFFER_SIZE).decode().strip()
-                if ack != "READY_TO_RECEIVE":
-                    raise Exception(f"Server did not accept file: {ack}")
-
-                upload_sock.sendall(b64.encode())
-
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
+                if response == "READY_TO_RECEIVE":
+                    upload_sock.sendall(b64.encode())
+                    response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "UPLOAD_SUCCESS":
                     raise Exception(f"Upload failed: {response}")
 
             print(f"[{threading.current_thread().name}] Uploaded: {filename}")
+            d1.add_file_record(filename, len(file_bytes), time.time())
 
         except Exception as e:
             print(f"[ERROR] Failed to upload {path}: {e}")
 
-    def upload_all_files(self, file_paths, max_threads=5):
+    def upload_all_files(self, file_paths, d1, max_threads=5):
         semaphore = threading.Semaphore(max_threads)
         threads = []
 
         def thread_upload(path):
             with semaphore:
                 try:
-                    self.upload_file(path)
+                    self.upload_file(path, d1)
+
                 except Exception as e:
                     print(f"[ERROR] Failed to upload {path}: {e}")
 
@@ -226,7 +249,7 @@ class CloudClient:
         print("✅ All uploads finished.")
 
 
-        def download_file(self, filename):
+        def download_file(self, filename, d1):
             try:
                 # Create a new socket for each download to avoid threading conflicts
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as download_sock:
@@ -306,10 +329,13 @@ class CloudClient:
                 path = input("Enter full path to file: ")
                 self.upload_file(path)
             elif cmd == "upload all":
-                d1 = ar_directory(Path(self.project_directory))
+                d1 = ar_directory(self.project_name, Path(self.project_directory))
+                d1.print_all_records()
                 files = d1.run()
                 file_paths = [file['path'] for file in files]
-                self.upload_all_files(file_paths)
+                self.upload_all_files(file_paths, d1)
+                print("uploading finished.")
+                d1.print_all_records()
             elif cmd == "download":
                 filename = input("Enter filename to download: ")
                 self.download_file(filename)

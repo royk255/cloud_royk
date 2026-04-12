@@ -8,7 +8,8 @@ import json
 import sqlite3
 
 class ar_directory:
-    def __init__(self, directory_path=None):
+    def __init__(self, project_name, directory_path=None):
+        self.project_name = project_name
         self.directory_path = directory_path or os.getcwd()
         #self.file_data = self.directory()
         self.file_data = self.directory()
@@ -51,7 +52,7 @@ class ar_directory:
         #return self.file_data
 
     def filter_files(self):
-        d1 = c_db.data("files_data.db")
+        d1 = c_db.data("files_data.db", self.project_name)
         new_files = []
         for data in self.file_data:
             if not d1.is_file_record_exists(data["name"]):
@@ -60,21 +61,56 @@ class ar_directory:
                 new_files.append(data)
         self.file_data = new_files
         print("Filtered files len:", len(self.file_data))
-        
+    
+    def print_all_records(self):
+        d1 = c_db.data("files_data.db", self.project_name)
+        d1.print_all_records()
+    
+    def add_file_record(self, name_of_file, file_size, update_date):
+        d1 = c_db.data("files_data.db", self.project_name)
+        d1.add_file_record(name_of_file, file_size, update_date)
 
     def add_to_database(self):
-        d1 = c_db.data("files_data.db")
+        d1 = c_db.data("files_data.db", self.project_name)
         for data in self.file_data:
             d1.add_file_record(data["name"], data["size"], data["last_update"])
+
+    def clear_all_records(self):
+        """
+        Clear all tracked file records in local state and in the files DB.
+        """
+        self.file_data = []
+
+        db_path = "files_data.db"
+        d1 = c_db.data(db_path)
+
+        if hasattr(d1, "clear_file_records"):
+            d1.clear_file_records()
+        elif hasattr(d1, "delete_all_files"):
+            d1.delete_all_files()
+        else:
+            # fallback: direct sqlite delete (guess table name)
+            try:
+                conn = sqlite3.connect(db_path)
+                cur = conn.cursor()
+                cur.execute("DELETE FROM files")
+                conn.commit()
+            finally:
+                conn.close()
+
+        print("ar_directory: all file records cleared")
     
+    
+
     def run(self):
+        #self.clear_all_records()
         self.directory()
-        #self.filter_files()
-        self.add_to_database()
-        d1 = c_db.data("files_data.db")
-        print("Database records:")
-        d1.print_all_records()
-        print("--------------------")
+        self.filter_files()
+        #self.add_to_database()
+        #d1 = c_db.data("files_data.db")
+        #print("Database records:")
+        #d1.print_all_records()
+        #print("--------------------")
         return self.file_data
         
 
@@ -187,7 +223,7 @@ class DatabaseManager:
         result = self.cursor.fetchone()
         return result[0] if result else None
     
-    def get_projecty_path(self, project_name):
+    def get_project_path(self, project_name):
         self.cursor.execute('SELECT path FROM projects WHERE project_name = ?', (project_name,))
         result = self.cursor.fetchone()
         return result[0] if result else None
@@ -248,5 +284,5 @@ if __name__ == "__main__":
     d.clear_data_base()
     d = DatabaseManager("user_data.db")
     d.clear_data_base()
-   """ 
+   """
 #    main()

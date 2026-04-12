@@ -2,8 +2,9 @@ import sqlite3
 from datetime import datetime
 
 class data:
-    def __init__(self,db_name,reset=False):
+    def __init__(self,db_name,project_name,reset=True):
         self.db_name = db_name
+        self.project_name = project_name
         self.reset = reset
         self.initialize_database()
 
@@ -12,16 +13,17 @@ class data:
         cursor = conn.cursor()
         if self.reset:
             # Drop the table if it exists
-            cursor.execute('''DROP TABLE IF EXISTS files''')
+            #cursor.execute('''DROP TABLE IF EXISTS files''')
+            cursor.execute('''DROP TABLE IF EXISTS {}'''.format(self.project_name))
         # Create the table again
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS files (
+            CREATE TABLE IF NOT EXISTS {project_name} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name_of_file TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 update_date INTEGER NOT NULL
             )
-        ''')
+        '''.format(project_name=self.project_name)) 
         conn.commit()
         conn.close()
 
@@ -31,18 +33,18 @@ class data:
         cursor = conn.cursor()
         #update_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
-            INSERT INTO files (name_of_file, file_size, update_date)
+            INSERT INTO {project_name} (name_of_file, file_size, update_date)
             VALUES (?, ?, ?)
         ''', (name_of_file, file_size, update_date))
         conn.commit()
-        for row in cursor.execute("SELECT * FROM files").fetchall():
+        for row in cursor.execute("SELECT * FROM {project_name}".format(project_name=self.project_name)).fetchall():
             print(row)
         conn.close()
     
     def get_file_records(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM files")
+        cursor.execute("SELECT * FROM {project_name}".format(project_name=self.project_name))
         records = cursor.fetchall()
         conn.close()
         return records
@@ -50,7 +52,7 @@ class data:
     def is_file_record_exists(self, name_of_file):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM files WHERE name_of_file=?", (name_of_file,))
+        cursor.execute("SELECT * FROM {project_name} WHERE name_of_file=?".format(project_name=self.project_name), (name_of_file,))
         record = cursor.fetchone()
         conn.close()
         return record is not None
@@ -58,7 +60,7 @@ class data:
     def get_file_record(self, name_of_file):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM files WHERE name_of_file=?", (name_of_file,))
+        cursor.execute("SELECT * FROM {project_name} WHERE name_of_file=?".format(project_name=self.project_name), (name_of_file,))
         record = cursor.fetchone()
         conn.close()
         return record
@@ -66,14 +68,14 @@ class data:
     def delete_file_record(self, name_of_file):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM files WHERE name_of_file=?", (name_of_file,))
+        cursor.execute("DELETE FROM {project_name} WHERE name_of_file=?".format(project_name=self.project_name), (name_of_file,))
         conn.commit()
         conn.close()
 
     def print_all_records(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM files")
+        cursor.execute("SELECT * FROM {project_name}".format(project_name=self.project_name))
         records = cursor.fetchall()
         for record in records:
             print(record)
@@ -82,7 +84,7 @@ class data:
     def clean_database(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM files")
+        cursor.execute("DELETE FROM {project_name}".format(project_name=self.project_name))
         conn.commit()
         conn.close()
 

@@ -65,7 +65,8 @@ def handle_client(conn, addr):
                 else:
                     conn.send(b"ERROR: AUTH REQUIRED")
                     #all_good = False
-                _, project_name, ip, space,price, code = msg.split("|")
+                #_, project_name, ip, space,price, code = msg.split("|") #why do i send the ip
+                _, project_name, space,price, code = msg.split("|") #why do i send the ip
                 project_path = os.path.join(user_dir, project_name)
                 if os.path.exists(project_path):
                     conn.send(b"PROJECT_EXISTS")
@@ -124,7 +125,8 @@ def handle_client(conn, addr):
 
                     _, filename, b64size = header_parts
                     b64size = int(b64size)
-                    conn.send(b"READY_TO_RECEIVE")
+                    if b64size > 0:
+                        conn.send(b"READY_TO_RECEIVE")
 
                     received = b""
                     while len(received) < b64size:
