@@ -151,7 +151,7 @@ def handle_client(conn, addr):
                     print(f"[UPLOAD ERROR] {e}")
                     conn.send(f"ERROR|UPLOAD_FAILED: {str(e)}".encode())
 
-            elif msg.startswith("DOWNLOAD"):
+            elif msg.startswith("DOWNLOAD|"):
                 try:
                     _, filename = msg.strip().split("|")
                     if project_path is None:
@@ -174,9 +174,42 @@ def handle_client(conn, addr):
                     print(f"[DOWNLOAD ERROR] {e}")
                     conn.send(b"ERROR|DOWNLOAD_FAILED")
 
+            elif msg.startswith("DOWNLOAD_PROJECT"):
+                    try:
+                        _, project_name = msg.strip().split("|")
+                        if project_path is None:
+                            conn.send(b"ERROR|NO_ACTIVE_PROJECT")
+                            continue
+                        
+                        project_path = os.path.join(user_dir, project_name)
+                        if not os.path.exists(project_path):
+                            conn.send(b"ERROR|PROJECT_NOT_FOUND")
+                            continue
+    
+                        # Create a zip of the project
+                        import io
+                        import zipfile
+    
+                        zip_buffer = io.BytesIO()
+                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                            for root, _, files in os.walk(project_path):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    arcname = os.path.relpath(file_path, project_path)
+                                    zip_file.write(file_path, arcname)
+    
+                        b64_zip = base64.b64encode(zip_buffer.getvalue())
+                        size = len(b64_zip)
+                        conn.send(f"DOWNLOAD|{size}".encode())
+                        ack = conn.recv(BUFFER_SIZE)
+                        if ack == b"READY":
+                            conn.sendall(b64_zip)
+                    except Exception as e:
+                        print(f"[DOWNLOAD PROJECT ERROR] {e}")
+                        conn.send(b"ERROR|DOWNLOAD_PROJECT_FAILED")
             else:
                 conn.send(b"UNKNOWN_COMMAND")
-
+            
     except Exception as e:
         print(f"[SERVER ERROR] {e}")
         try:

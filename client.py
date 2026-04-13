@@ -78,6 +78,7 @@ class CloudClient:
 #C:\Data\roy\school\cyber\cloud\copy
     def project_directory(self):
         p1 = d_manager("project_data.db")
+        self.db = p1
         p1.print_all_projects()
         self.project_name = input("Enter project name or type new to create a new project: ").strip()
         if self.project_name == "new":
@@ -184,7 +185,7 @@ class CloudClient:
                 print(f"entring '{self.project_name}'.")
                 self.project_directory = p1.get_project_path(self.project_name)
         """
-    def upload_file(self,path, d1):
+    def upload_file(self,path):
         try:
             #filename = os.path.basename(path)
             filename = os.path.basename(path)
@@ -221,19 +222,21 @@ class CloudClient:
                     raise Exception(f"Upload failed: {response}")
 
             print(f"[{threading.current_thread().name}] Uploaded: {filename}")
-            d1.add_file_record(filename, len(file_bytes), time.time())
+            db = d_manager("project_data.db")
+            db.add_file(self.project_name, filename, len(file_bytes), time.time())
+
 
         except Exception as e:
             print(f"[ERROR] Failed to upload {path}: {e}")
 
-    def upload_all_files(self, file_paths, d1, max_threads=5):
+    def upload_all_files(self, file_paths, max_threads=5):
         semaphore = threading.Semaphore(max_threads)
         threads = []
 
         def thread_upload(path):
             with semaphore:
                 try:
-                    self.upload_file(path, d1)
+                    self.upload_file(path)
 
                 except Exception as e:
                     print(f"[ERROR] Failed to upload {path}: {e}")
@@ -249,52 +252,61 @@ class CloudClient:
         print("✅ All uploads finished.")
 
 
-        def download_file(self, filename, d1):
-            try:
-                # Create a new socket for each download to avoid threading conflicts
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as download_sock:
-                    download_sock.connect((self.host, self.port))
+    def download_file(self, filename):
+        try:
+            # Create a new socket for each download to avoid threading conflicts
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as download_sock:
+                download_sock.connect((self.host, self.port))
 
-                    # First login again to establish identity
-                    download_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
-                    response = download_sock.recv(BUFFER_SIZE).decode().strip()
-                    if response != "LOGIN_SUCCESS":
-                        raise Exception(f"Authentication failed: {response}")
+                # First login again to establish identity
+                download_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
+                response = download_sock.recv(BUFFER_SIZE).decode().strip()
+                if response != "LOGIN_SUCCESS":
+                    raise Exception(f"Authentication failed: {response}")
 
-                    # Send project context
-                    download_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
-                    response = download_sock.recv(BUFFER_SIZE).decode().strip()
-                    if response != "PROJECT_OPENED":
-                        raise Exception(f"Failed to open project context: {response}")
+                # Send project context
+                download_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
+                response = download_sock.recv(BUFFER_SIZE).decode().strip()
+                if response != "PROJECT_OPENED":
+                    raise Exception(f"Failed to open project context: {response}")
 
-                    # Send download command
-                    download_sock.send(f"DOWNLOAD|{filename}".encode())
-                    file_data = download_sock.recv(BUFFER_SIZE)
+                # Send download command
+                download_sock.send(f"DOWNLOAD|{filename}".encode())
+                file_data = download_sock.recv(BUFFER_SIZE)
 
-                    if file_data:
-                        with open(filename, "wb") as f:
-                            f.write(file_data)
-                        print(f"Downloaded: {filename}")
-                    else:
-                        print(f"Failed to download: {filename}")
+                if file_data:
+                    with open(filename, "wb") as f:
+                        f.write(file_data)
+                    print(f"Downloaded: {filename}")
+                else:
+                    print(f"Failed to download: {filename}")
 
-            except Exception as e:
-                print(f"[ERROR] Failed to download {filename}: {e}")
+        except Exception as e:
+            print(f"[ERROR] Failed to download {filename}: {e}")
 
-        def download_project(self):
-            # Assuming we have a method to get all file names in the project
-            file_list = self.get_project_file_list()  # This method should return a list of filenames
-            threads = []
+    def download_project(self):
+        msg = f"DOWNLOAD_PROJECT|{self.project_name}"
+        response = self.send_and_receive(msg)
+        print("Server:", response)
+        if response.startswith("DOWNLOAD"):
+            _, size_str = response.split("|")
+            expected_size = int(size_str)
+            self.sock.send(b"READY")
+            received_data = b""
+            while len(received_data) < expected_size:
+                chunk = self.sock.recv(BUFFER_SIZE)
+                if not chunk:
+                    break
+                received_data += chunk
 
-            for filename in file_list:
-                t = threading.Thread(target=self.download_file, args=(filename,))
-                threads.append(t)
-                t.start()
-
-            for t in threads:
-                t.join()
-
-            print("✅ All downloads finished.")
+            if len(received_data) == expected_size:
+                zip_data = base64.b64decode(received_data)
+                with open(f"{self.project_name}.zip", "wb") as f:
+                    f.write(zip_data)
+                print(f"Project '{self.project_name}' downloaded successfully.")
+            else:
+                print(f"Failed to download project: Expected {expected_size} bytes, received {len(received_data)} bytes.")
+            
 
 
 
@@ -324,18 +336,21 @@ class CloudClient:
         self.project_directory()
 
         while True:
-            cmd = input("Type 'upload' to send a file, 'upload all', or 'quit': ").lower()
+            cmd = input("Type 'upload' to send a file, 'upload all', 'download file', 'download all' or 'quit': ").lower()
             if cmd == "upload":
                 path = input("Enter full path to file: ")
                 self.upload_file(path)
             elif cmd == "upload all":
-                d1 = ar_directory(self.project_name, Path(self.project_directory))
-                d1.print_all_records()
-                files = d1.run()
+                #d1 = ar_directory(self.project_name, Path(self.project_directory))
+                #d1.print_all_records()
+                #files = d1.run()
+                #file_paths = [file['path'] for file in files]
+                #self.upload_all_files(file_paths, d1)
+                files = self.db.run(self.project_name)
                 file_paths = [file['path'] for file in files]
-                self.upload_all_files(file_paths, d1)
+                self.upload_all_files(file_paths)
                 print("uploading finished.")
-                d1.print_all_records()
+                #d1.print_all_records()
             elif cmd == "download":
                 filename = input("Enter filename to download: ")
                 self.download_file(filename)
@@ -346,7 +361,7 @@ class CloudClient:
             else:
                 print("Unknown command.")
 
-            self.disconnect()
+        self.disconnect()
 
 if __name__ == "__main__":
     client = CloudClient()

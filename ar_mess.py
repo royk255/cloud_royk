@@ -156,6 +156,15 @@ class DatabaseManager:
                 space INTEGER NOT NULL
             )
         ''') #wrong need to be a diffrent db
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER SECONDARY KEY NOT NULL,
+                name_of_file TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                update_date INTEGER NOT NULL
+            )
+        ''')
         self.connection.commit()
 
     def add_user(self, username, password, email, need_to_pay=0):
@@ -190,6 +199,19 @@ class DatabaseManager:
             VALUES (?, ?, ?, ?)
         ''', (user, user_ip, price, space))
         self.connection.commit()
+
+    def add_file(self, project_name, name_of_file, file_size, update_date):
+        project_id = self.get_project_id(project_name)
+        self.cursor.execute('''
+            INSERT INTO files (project_id, name_of_file, file_size, update_date)
+            VALUES (?, ?, ?, ?)
+        ''', (project_id, name_of_file, file_size, update_date))
+        self.connection.commit()
+
+    def get_project_id(self, project_name):
+        self.cursor.execute('SELECT id FROM projects WHERE project_name = ?', (project_name,))
+        result = self.cursor.fetchone()
+        return result[0] if result else None
 
     def remove_user(self, user_id):
         self.cursor.execute('DELETE FROM user_data WHERE id = ?', (user_id,))
@@ -239,9 +261,63 @@ class DatabaseManager:
         self.cursor.execute('DELETE FROM user_data')
         self.cursor.execute('DELETE FROM projects')
         self.cursor.execute('DELETE FROM servers')
+        self.cursor.execute('DELETE FROM files')
         self.connection.commit()
 
+    def delete_file_record(self, project_name, name_of_file):
+        project_id = self.get_project_id(project_name)
+        self.cursor.execute('DELETE FROM files WHERE project_id = ? AND name_of_file = ?', (project_id, name_of_file))
+        self.connection.commit()
+    
+    def get_file_record(self, project_name, name_of_file):
+        project_id = self.get_project_id(project_name)
+        self.cursor.execute('SELECT * FROM files WHERE project_id = ? AND name_of_file = ?', (project_id, name_of_file))
+        return self.cursor.fetchone()
+    def get_all_file_records(self, project_name):
+        project_id = self.get_project_id(project_name)
+        self.cursor.execute('SELECT * FROM files WHERE project_id = ?', (project_id,))
+        return self.cursor.fetchall()
+    def is_file_record_exists(self, project_name, name_of_file):
+        project_id = self.get_project_id(project_name)
+        self.cursor.execute('SELECT * FROM files WHERE project_id = ? AND name_of_file = ?', (project_id, name_of_file))
+        return self.cursor.fetchone() is not None
+    def filter_file_records(self, project_name, file_data_list):
+        project_id = self.get_project_id(project_name)
+        filtered_files = []
+        for file_data in file_data_list:
+            if not self.is_file_record_exists(project_name, file_data["name"]):       #need to add if date is diffrent
+                filtered_files.append(file_data)
+            else:
+                record = self.get_file_record(project_name, file_data["name"])
+                if record[3] != file_data["last_update"]:
+                    filtered_files.append(file_data)
+        return filtered_files
+    def directory(self, project_name):
+        """Get all files from project path with size, last change, name and path"""
+        project_path = self.get_project_path(project_name)
+        if not project_path:
+            return []
+        
+        files = []
+        try:
+            for file in os.listdir(project_path):
+                file_path = os.path.join(project_path, file)
+                if os.path.isfile(file_path):
+                    files.append({
+                        "name": file,
+                        "size": os.path.getsize(file_path),
+                        "last_update": pathlib.Path(file_path).stat().st_mtime,
+                        "path": file_path
+                    })
+        except Exception as e:
+            print(f"Error reading directory: {e}")
+        
+        return files
 
+    def run(self, project_name):
+        file_data = self.directory(project_name)
+        filtered_files = self.filter_file_records(project_name, file_data)
+        return filtered_files
 class JSONConfig:
     def __init__(self, filename):
         self.filename = filename
