@@ -1,3 +1,4 @@
+from importlib.resources import path
 import os
 import c_db
 import pathlib
@@ -200,7 +201,7 @@ class DatabaseManager:
         ''', (user, user_ip, price, space))
         self.connection.commit()
 
-    def add_file(self, project_name, name_of_file, file_size, update_date):
+    def add_file(self, project_name, name_of_file, file_size, update_date): #
         project_id = self.get_project_id(project_name)
         self.cursor.execute('''
             INSERT INTO files (project_id, name_of_file, file_size, update_date)
@@ -285,7 +286,7 @@ class DatabaseManager:
         project_id = self.get_project_id(project_name)
         filtered_files = []
         for file_data in file_data_list:
-            if not self.is_file_record_exists(project_name, file_data["name"]):       #need to add if date is diffrent
+            if not self.is_file_record_exists(project_name, file_data["name"]):       #need to add if date is diffrent,done
                 filtered_files.append(file_data)
             else:
                 record = self.get_file_record(project_name, file_data["name"])
@@ -297,18 +298,28 @@ class DatabaseManager:
         project_path = self.get_project_path(project_name)
         if not project_path:
             return []
-        
+        folders_names = [entry.name for entry in os.scandir(project_path) if entry.is_dir()]
         files = []
         try:
             for file in os.listdir(project_path):
-                file_path = os.path.join(project_path, file)
-                if os.path.isfile(file_path):
-                    files.append({
-                        "name": file,
-                        "size": os.path.getsize(file_path),
-                        "last_update": pathlib.Path(file_path).stat().st_mtime,
-                        "path": file_path
-                    })
+                    file_path = os.path.join(project_path, file)
+                    if os.path.isfile(file_path):
+                        files.append({
+                            "name": file,
+                            "size": os.path.getsize(file_path),
+                            "last_update": pathlib.Path(file_path).stat().st_mtime,
+                            "path": file_path
+                        })
+            for folder in folders_names: #
+                for file in os.listdir(os.path.join(project_path, folder)):
+                    file_path = os.path.join(project_path, folder, file)
+                    if os.path.isfile(file_path):
+                        files.append({
+                            "name": file,
+                            "size": os.path.getsize(file_path),
+                            "last_update": pathlib.Path(file_path).stat().st_mtime,
+                            "path": file_path
+                        })
         except Exception as e:
             print(f"Error reading directory: {e}")
         
@@ -321,7 +332,7 @@ class DatabaseManager:
 class JSONConfig:
     def __init__(self, filename):
         self.filename = filename
-        self.data = {"max_space": 20, "space_left": 20, "code": ""}
+        self.data = {"max_space": 20, "space_left": 20, "code": ""} # need to assk user for this data
         self.load()
     
     def load(self):
@@ -359,6 +370,8 @@ if __name__ == "__main__":
     d = DatabaseManager("project_data.db")
     d.clear_data_base()
     d = DatabaseManager("user_data.db")
+    d.clear_data_base()
+    d = DatabaseManager("files_data.db")
     d.clear_data_base()
    """
 #    main()

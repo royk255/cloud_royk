@@ -211,7 +211,11 @@ class CloudClient:
                     raise Exception(f"Failed to open project context: {response}")
 
                 #send upload command 
-                header = f"UPLOAD|{filename}|{len(b64)}"
+                folder = os.path.dirname(path)
+                relative_folder = ""
+                if folder != self.project_directory:
+                    relative_folder = os.path.relpath(folder, self.project_directory)
+                header = f"UPLOAD|{relative_folder}|{filename}|{len(b64)}"
                 upload_sock.sendall((header).encode())
 
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
@@ -229,7 +233,7 @@ class CloudClient:
         except Exception as e:
             print(f"[ERROR] Failed to upload {path}: {e}")
 
-    def upload_all_files(self, file_paths, max_threads=5):
+    def upload_all_files(self, file_paths, max_threads=5): #return to 5 later
         semaphore = threading.Semaphore(max_threads)
         threads = []
 

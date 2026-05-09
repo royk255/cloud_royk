@@ -32,15 +32,6 @@ def handle_client(conn, addr):
         cmd, *parts = msg.strip().split("|")
         db_u = d_manager("user_data.db")
 
-        """"
-        if cmd == "SIGNUP":
-            username, password, email = parts
-            if db_u.user_exists(username):
-                return conn.send(b"USERNAME_EXISTS")
-            db_u.add_user(username, password, email)
-            user_dir = ensure_user_dir(username)
-            conn.send(b"SIGNUP_SUCCESS")
-        """
         if cmd == "LOGIN":
             username, password = parts
             if not db_u.check_login(username, password):
@@ -110,7 +101,7 @@ def handle_client(conn, addr):
                     conn.send(b"PROJECT_NOT_FOUND")
                 else:
                     conn.send(b"PROJECT_OPENED")
-            elif msg.startswith("UPLOAD"):
+            elif msg.startswith("UPLOAD"):    #UPLOAD|folder|filename|size
                 try:
                     # Make sure we have an active project
                     if project_path is None:
@@ -119,11 +110,15 @@ def handle_client(conn, addr):
                         
                     # header: UPLOAD|filename|size
                     header_parts = msg.split("|")
-                    if len(header_parts) != 3:
+                    if len(header_parts) != 4:
                         conn.send(b"ERROR|INVALID_UPLOAD_HEADER")
                         continue
 
-                    _, filename, b64size = header_parts
+                    _, folder, filename, b64size = header_parts #
+                    if folder:
+                        folder_path = os.path.join(project_path, folder)
+                        os.makedirs(folder_path, exist_ok=True)
+                        project_path = folder_path  # update project path to the folder
                     b64size = int(b64size)
                     if b64size > 0:
                         conn.send(b"READY_TO_RECEIVE")
