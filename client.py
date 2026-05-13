@@ -367,6 +367,19 @@ class CloudClient:
 
         self.disconnect()
 
+import subprocess
+import sys
+
+def install_requirements():
+    try:
+        # Install all dependencies listed in requirements.txt
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+    except Exception as e:
+        print(f"Error installing requirements: {e}")
+
+
+
 if __name__ == "__main__":
+    install_requirements()
     client = CloudClient()
     client.run()
