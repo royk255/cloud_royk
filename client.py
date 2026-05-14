@@ -95,7 +95,20 @@ class CloudClient:
                 if int(inp)>=0:
                     return int(inp)
             print("INVALID INPUT, only pos numbers")
-    def project_directory(self):
+
+    def check_conn(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((self.host, self.port))
+            sock.sendall(b"bla")
+            #sock.disconnect()
+            return True
+        except:
+            print("error connecting pls try another host")
+            self.disconnect()
+            return False
+        
+    def project_directory_f(self):
         p1 = d_manager("project_data.db")
         self.db = p1
         p1.print_all_projects()
@@ -104,7 +117,9 @@ class CloudClient:
             self.project_name = input("Enter project name: ").strip()
             friend = input("do you have an ip alrady? (y/n) ").strip().lower()   #"y"
             if friend == "y":
-                self.host =  input("Enter the ip: ").strip()    #"127.0.0.1" 
+                self.host =  input("Enter the ip: ").strip()    #"127.0.0.1"
+                if not self.check_conn():
+                    self.project_directory_f() 
                 space = self.get_int("Enter the space you want to rent in GB: ")                                #int(input("Enter the space you want to rent in GB: ").strip()) #1
                 code =  self.get_int("Do you have a code? (Write code for yes, 0 for no): ")                                  #int(input("Do you have a code? (Write code for yes, 0 for no): ").strip()) # 0
                 path = "C:\\roy\\school\\bagrot\\copy" #input("Enter the path of the project: ").strip()
@@ -113,7 +128,7 @@ class CloudClient:
                     response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|0|{code}")
                     if self.signup() == False:
                         print("Signup failed, try again.")
-                        self.project_directory()
+                        self.project_directory_f()
                     response = self.sock.recv(BUFFER_SIZE).decode()
                     print("Server:", response)
                     if response == "PROJECT_CREATED":
@@ -122,13 +137,16 @@ class CloudClient:
                         return True
                     else:
                         print("--------------------------------")
-                        self.project_directory()
+                        self.project_directory_f()
                 else:
-                    price = self.get_int("Enter the price you want to pay for 1 GB per month: ") #1
+                    #price = self.get_int("Enter the price you want to pay for 1 GB per month: ") #1    #fix price
+                    price = self.send_and_receive("PRICE")
+                    if input(f"the price is {price} do you agree? y for yes: ") != "y":
+                        return False
                     response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|{price}|0")
                     if self.signup() == False:
                         print("Signup failed, try again.")
-                        self.project_directory()
+                        self.project_directory_f()
                     response = self.sock.recv(BUFFER_SIZE).decode()
                     print("Server:", response)
                     if response == "PROJECT_CREATED":
@@ -173,10 +191,11 @@ class CloudClient:
                 else:
                     print(f"Failed to log in to project '{self.project_name}': {response}")
                     self.disconnect()
-                    self.project_directory()
+                    return False
+                    #self.project_directory()
             else:
                 print("Project not found.") #fix
-                self.project_directory()
+                self.project_directory_f()
 
 
     """
@@ -372,7 +391,7 @@ class CloudClient:
             """
         
         #print(f"Welcome, {self.username} 
-        if self.project_directory() == False:
+        if self.project_directory_f() == False:
             self.run()
 
         while True:

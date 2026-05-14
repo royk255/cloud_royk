@@ -29,8 +29,18 @@ def handle_client(conn, addr):
         
         user_dir = None
         msg = conn.recv(BUFFER_SIZE).decode()
+        print(msg)
         cmd, *parts = msg.strip().split("|")
         db_u = d_manager("user_data.db")
+
+
+        if cmd == "PRICE":
+            m = j_config("config.json").get_value("price")
+            m = str(m)
+            conn.send(m.encode())
+            msg = conn.recv(BUFFER_SIZE).decode()
+            cmd, *parts = msg.strip().split("|")
+
 
         if cmd == "LOGIN":
             username, password = parts
@@ -40,6 +50,7 @@ def handle_client(conn, addr):
             user_dir = ensure_user_dir(username)
 
         #elif cmd.startswith("CREATE_PROJECT"):
+        
         elif cmd == "CREATE_PROJECT":
                 conn.send(b"bla")
                 msg_2 = conn.recv(BUFFER_SIZE).decode()

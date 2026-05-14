@@ -334,7 +334,7 @@ class DatabaseManager:
 class JSONConfig:
     def __init__(self, filename):
         self.filename = filename
-        self.data = {"max_space": 20, "space_left": 20, "code": ""} # need to assk user for this data
+        self.data = {"max_space": 20, "space_left": 20, "code": "", "price":1} # need to assk user for this data
         self.load()
     
     def load(self):
