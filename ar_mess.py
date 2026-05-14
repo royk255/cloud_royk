@@ -58,7 +58,7 @@ class ar_directory:
         for data in self.file_data:
             if not d1.is_file_record_exists(data["name"]):
                 new_files.append(data)
-            elif d1.is_file_record_exists(data["name"] and d1.get_file_record(data["name"])[3] != data["last_update"]):
+            elif d1.is_file_record_exists(data["name"] and d1.get_file_record(data["name"])[3] != data["last_update"]): #fix here
                 new_files.append(data)
         self.file_data = new_files
         print("Filtered files len:", len(self.file_data))
@@ -290,7 +290,7 @@ class DatabaseManager:
                 filtered_files.append(file_data)
             else:
                 record = self.get_file_record(project_name, file_data["name"])
-                if record[3] != file_data["last_update"]:
+                if record[4] != file_data["last_update"]:
                     filtered_files.append(file_data)
         return filtered_files
     def directory(self, project_name):
@@ -329,6 +329,8 @@ class DatabaseManager:
         file_data = self.directory(project_name)
         filtered_files = self.filter_file_records(project_name, file_data)
         return filtered_files
+    
+
 class JSONConfig:
     def __init__(self, filename):
         self.filename = filename
@@ -373,5 +375,5 @@ if __name__ == "__main__":
     d.clear_data_base()
     d = DatabaseManager("files_data.db")
     d.clear_data_base()
-   """
+"""
 #    main()

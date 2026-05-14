@@ -8,6 +8,9 @@ from main_menu import mange
 import project_db
 import time
 from ar_mess import DatabaseManager as d_manager
+from importlib.resources import path
+from pathlib import Path
+import pathlib
 
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
@@ -76,6 +79,22 @@ class CloudClient:
         return False
 
 #C:\Data\roy\school\cyber\cloud\copy
+#C:\roy\school\bagrot\copy
+    def is_number(self,s):
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False
+        
+    def get_int(self,msg):
+        print(msg)
+        while True:
+            inp = input().strip()
+            if self.is_number(inp):
+                if int(inp)>=0:
+                    return int(inp)
+            print("INVALID INPUT, only pos numbers")
     def project_directory(self):
         p1 = d_manager("project_data.db")
         self.db = p1
@@ -83,37 +102,51 @@ class CloudClient:
         self.project_name = input("Enter project name or type new to create a new project: ").strip()
         if self.project_name == "new":
             self.project_name = input("Enter project name: ").strip()
-            friend = "y" #input("do you have an ip alrady? (y/n) ").strip().lower()
+            friend = input("do you have an ip alrady? (y/n) ").strip().lower()   #"y"
             if friend == "y":
-                self.host = "127.0.0.1" #input("Enter the ip: ").strip()  
-                space = 1 #int(input("Enter the space you want to rent in GB: ").strip())
-                code = 0 #int(input("Do you have a code? (Write code for yes, 0 for no): ").strip())
-                path = "C:\\Data\\roy\\school\\cyber\\cloud\\copy" #input("Enter the path of the project: ").strip()
+                self.host =  input("Enter the ip: ").strip()    #"127.0.0.1" 
+                space = self.get_int("Enter the space you want to rent in GB: ")                                #int(input("Enter the space you want to rent in GB: ").strip()) #1
+                code =  self.get_int("Do you have a code? (Write code for yes, 0 for no): ")                                  #int(input("Do you have a code? (Write code for yes, 0 for no): ").strip()) # 0
+                path = "C:\\roy\\school\\bagrot\\copy" #input("Enter the path of the project: ").strip()
                 ok = True
-                if code != 0 and ok:
+                if code != 0 and ok:     #create a free project using the code
                     response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|0|{code}")
                     if self.signup() == False:
                         print("Signup failed, try again.")
                         self.project_directory()
+                    response = self.sock.recv(BUFFER_SIZE).decode()
                     print("Server:", response)
                     if response == "PROJECT_CREATED":
                         p1.add_project(self.project_name, self.username, self.host, 0,0, space, path)
+                        self.project_directory = path
+                        return True
                     else:
                         print("--------------------------------")
                         self.project_directory()
                 else:
-                    price = 1 #int(input("Enter the price you want to pay for 1 GB per month: ").strip())
+                    price = self.get_int("Enter the price you want to pay for 1 GB per month: ") #1
                     response = self.send_and_receive(f"CREATE_PROJECT|{self.project_name}|{space}|{price}|0")
                     if self.signup() == False:
                         print("Signup failed, try again.")
                         self.project_directory()
+                    response = self.sock.recv(BUFFER_SIZE).decode()
+                    print("Server:", response)
+                    if response == "PROJECT_CREATED":
+                        p1.add_project(self.project_name, self.username, self.host, price,0, space, path)
+                        self.project_directory = path
+                        return True
+                    else: 
+                        return False
                     #print("Server:", response)
                     #if response == "PROJECT_CREATED":
-                    else:
-                        p1.add_project(self.project_name, self.username, self.host, price,0, space, path)
-                self.project_directory = path
+                    #else:
+                        #p1.add_project(self.project_name, self.username, self.host, price,0, space, path)
+                    #    return True
+                #self.project_directory = path
             else:
                 #rent a server from the market
+                print("sorry we dont support this kind of action right now")
+                return False
                 pass
         else:
             ip = p1.get_ip_by_project(self.project_name)
@@ -142,7 +175,7 @@ class CloudClient:
                     self.disconnect()
                     self.project_directory()
             else:
-                print("Project not found.")
+                print("Project not found.") #fix
                 self.project_directory()
 
 
@@ -204,7 +237,7 @@ class CloudClient:
                     raise Exception(f"Authentication failed: {response}")
 
                 # Send project context
-                current_project = os.path.basename(self.project_directory)
+                #current_project = os.path.basename(self.project_directory)
                 upload_sock.send(f"OPEN_PROJECT|{self.project_name}".encode())
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "PROJECT_OPENED":
@@ -227,7 +260,7 @@ class CloudClient:
 
             print(f"[{threading.current_thread().name}] Uploaded: {filename}")
             db = d_manager("project_data.db")
-            db.add_file(self.project_name, filename, len(file_bytes), time.time())
+            db.add_file(self.project_name, filename, len(file_bytes), pathlib.Path(path).stat().st_mtime)
 
 
         except Exception as e:
@@ -335,9 +368,12 @@ class CloudClient:
                 break
             else:
                 print("Try again.")
+        
             """
-        print(f"Welcome, {self.username}!")
-        self.project_directory()
+        
+        #print(f"Welcome, {self.username} 
+        if self.project_directory() == False:
+            self.run()
 
         while True:
             cmd = input("Type 'upload' to send a file, 'upload all', 'download file', 'download all' or 'quit': ").lower()

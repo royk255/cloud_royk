@@ -62,20 +62,20 @@ def handle_client(conn, addr):
                 if os.path.exists(project_path):
                     conn.send(b"PROJECT_EXISTS")
                 else:
-                    if code == "0":
+                    if code == "0":   #need to check price validation
                         db_u.add_to_pay(username,price)
                         j_config("config.json").set_value("space_left", j_config("config.json").get_value("space_left") - int(space))
                     elif code != j_config("config.json").get_value("code"):
                         conn.send(b"INVALID_CODE")
-                        alll_good = False
+                        all_good = False
                     if int(space) > j_config("config.json").get_value("space_left"):
                         conn.send(b"NOT_ENOUGH_SPACE")
                         all_good = False
                     if all_good:
                         os.makedirs(project_path)
                         conn.send(b"PROJECT_CREATED")
-                    else:
-                        conn.send(b"PROJECT_CREATION_FAILED")
+                    #else:
+                    #    conn.send(b"PROJECT_CREATION_FAILED")
 
         else:
             return conn.send(b"ERROR: AUTH REQUIRED")
