@@ -80,14 +80,14 @@ class CloudClient:
 
 #C:\Data\roy\school\cyber\cloud\copy
 #C:\roy\school\bagrot\copy
-    def is_number(self,s):
+    def is_number(self,s): #check if input is int
         try:
             int(s)
             return True
         except ValueError:
             return False
         
-    def get_int(self,msg):
+    def get_int(self,msg): #take int as input
         print(msg)
         while True:
             inp = input().strip()
@@ -96,7 +96,7 @@ class CloudClient:
                     return int(inp)
             print("INVALID INPUT, only pos numbers")
 
-    def check_conn(self):
+    def check_conn(self): 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self.host, self.port))
@@ -108,11 +108,13 @@ class CloudClient:
             self.disconnect()
             return False
         
-    def project_directory_f(self):
+    def project_directory_f(self): #does login signup and projects
         p1 = d_manager("project_data.db")
         self.db = p1
         p1.print_all_projects()
         self.project_name = input("Enter project name or type new to create a new project: ").strip()
+        if not self.check_text(self.project_name):
+            self.project_directory_f()
         if self.project_name == "new":
             self.project_name = input("Enter project name: ").strip()
             friend = input("do you have an ip alrady? (y/n) ").strip().lower()   #"y"
@@ -198,45 +200,6 @@ class CloudClient:
                 self.project_directory_f()
 
 
-    """
-    def project_directory_2(self):
-        #project_db.create_json_file()
-        p1 = project_db.TextFileManager()
-        response = self.send_and_receive("PROJECT_LIST")
-        print("Server:", response)
-        self.project_name = input("Enter project name or type New to create a new project: ").strip()     
-        if self.project_name.lower() == "new":
-            self.project_name = input("Enter project name: ").strip()
-            self.project_type = 1
-            response = self.send_and_receive(f"CREATE_PROJECT|{self.project_type}|{self.project_name}")
-            print("Server:", response)
-            if response == "PROJECT_CREATED":
-                self.project_directory = input("Enter project directory path: ").strip()
-                if not os.path.exists(self.project_directory):
-                    print("Directory not found.")
-                    while True:
-                        self.project_directory = Path(input("Enter project directory path: ").strip())
-                        if os.path.exists(self.project_directory):
-                            break
-                p1.add_project(self.project_name, self.project_directory, self.project_type)
-                x = ar_directory(Path(self.project_directory))
-                files_data = x.return_paths()
-                lis = [data["path"] for data in files_data]  
-                self.upload_all_files(lis)
-                print(f"Project '{self.project_name}' created successfully.")
-            else:
-                print("Failed to create project.")
-
-        else:
-            response = self.send_and_receive(f"OPEN_PROJECT|{self.project_name}")
-            print("Server:", response)
-            if response == "PROJECT_NOT_FOUND":
-                print("Project not found.")
-                self.project_directory()
-            else:
-                print(f"entring '{self.project_name}'.")
-                self.project_directory = p1.get_project_path(self.project_name)
-        """
     def upload_file(self,path):
         try:
             #filename = os.path.basename(path)
@@ -340,7 +303,7 @@ class CloudClient:
         except Exception as e:
             print(f"[ERROR] Failed to download {filename}: {e}")
 
-    def download_project(self):
+    def download_project(self):   #download a zip file of the project
         msg = f"DOWNLOAD_PROJECT|{self.project_name}"
         response = self.send_and_receive(msg)
         print("Server:", response)

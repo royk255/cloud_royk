@@ -8,7 +8,7 @@ import time
 import json
 import sqlite3
 
-class ar_directory:
+class ar_directory:   # currntly not in use 
     def __init__(self, project_name, directory_path=None):
         self.project_name = project_name
         self.directory_path = directory_path or os.getcwd()
@@ -115,7 +115,7 @@ class ar_directory:
         return self.file_data
         
 
-class DatabaseManager:
+class DatabaseManager: 
     def get_lowest_price_server(self, required_space):
         self.cursor.execute('''
             SELECT * FROM servers WHERE space >= ? ORDER BY price ASC LIMIT 1
