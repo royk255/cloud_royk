@@ -12,7 +12,7 @@ from importlib.resources import path
 from pathlib import Path
 import pathlib
 import enc
-
+import hashlib
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
 BUFFER_SIZE = 4096
@@ -41,7 +41,7 @@ class CloudClient:
         self.connect()
         username = input("Username: ")
         password = input("Password: ")
-        response = self.send_and_receive(f"LOGIN|{username}|{password}")
+        response = self.send_and_receive(f"LOGIN|{username}|{hashlib.sha256(password.encode()).hexdigest()}")
         print("Server:", response)
         if response == "LOGIN_SUCCESS":
             self.username = username
@@ -70,7 +70,7 @@ class CloudClient:
         if self.check_text(username) == False or self.check_text(password) == False:
             print("Username or password cant be use, pls try again.")
             self.signup()
-        response = self.send_and_receive(f"SIGNUP|{username}|{password}|{email}")
+        response = self.send_and_receive(f"SIGNUP|{username}|{hashlib.sha256(password.encode()).hexdigest()}|{email}")
         print("Server:", response)
         if response == "SIGNUP_SUCCESS":
             self.username = username
@@ -178,7 +178,7 @@ class CloudClient:
                 self.connect() #need to continue
                 username = input("Username: ")
                 password = input("Password: ")
-                response = self.send_and_receive(f"LOGIN|{username}|{password}")
+                response = self.send_and_receive(f"LOGIN|{username}|{hashlib.sha256(password.encode()).hexdigest()}")
                 if response == "LOGIN_SUCCESS":
                     self.username = username
                     self.password = password
@@ -217,7 +217,7 @@ class CloudClient:
                 upload_sock.connect((self.host, self.port))
 
                 # First login again to establish identity
-                upload_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
+                upload_sock.send(f"LOGIN|{self.username}|{hashlib.sha256(self.password.encode()).hexdigest()}".encode())
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "LOGIN_SUCCESS":
                     raise Exception(f"Authentication failed: {response}")
@@ -282,7 +282,7 @@ class CloudClient:
                 download_sock.connect((self.host, self.port))
 
                 # First login again to establish identity
-                download_sock.send(f"LOGIN|{self.username}|{self.password}".encode())
+                download_sock.send(f"LOGIN|{self.username}|{hashlib.sha256(self.password.encode()).hexdigest()}".encode())
                 response = download_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "LOGIN_SUCCESS":
                     raise Exception(f"Authentication failed: {response}")
@@ -295,12 +295,21 @@ class CloudClient:
 
                 # Send download command
                 download_sock.send(f"DOWNLOAD|{filename}".encode())
+                _, size = download_sock.recv(BUFFER_SIZE).decode().strip().split("|")
+
+                download_sock.send(b"READY")
                 file_data = download_sock.recv(BUFFER_SIZE)
 
-                if file_data:
+                if int(size) > 0:
                     with open(filename, "wb") as f:
                         f.write(file_data)
                     print(f"Downloaded: {filename}")
+                    dec = enc.decrypt_file(f"./{filename}", self.password)
+                    if dec:
+                        with open(filename, "wb") as f:
+                            f.write(dec)
+                        print(f"Decrypted: {filename}")
+                        #os.remove(filename)
                 else:
                     print(f"Failed to download: {filename}")
 
@@ -331,7 +340,7 @@ class CloudClient:
                     print(f"Project '{self.project_name}' extracted successfully.")
                     if os.path.exists(f"{self.project_name}.zip"):
                         os.remove(f"{self.project_name}.zip")
-                        print(f"🗑️ Cleaned up! {self.project_name}.zip has been permanently deleted.")
+                        print(f" Cleaned up! {self.project_name}.zip has been permanently deleted.")
                     else:
                         print(" File not found, nothing to delete.")
             else:
@@ -381,7 +390,7 @@ class CloudClient:
                 self.upload_all_files(file_paths)
                 print("uploading finished.")
                 #d1.print_all_records()
-            elif cmd == "download":
+            elif cmd == "download file":
                 filename = input("Enter filename to download: ")
                 self.download_file(filename)
             elif cmd == "download all":

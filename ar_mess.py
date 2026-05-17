@@ -1,4 +1,4 @@
-from importlib.resources import path
+#from importlib.resources import pathhashlib
 import os
 import c_db
 import pathlib
@@ -7,6 +7,7 @@ import threading
 import time
 import json
 import sqlite3
+import hashlib
 
 class ar_directory:   # currntly not in use 
     def __init__(self, project_name, directory_path=None):
@@ -321,15 +322,34 @@ class DatabaseManager:
                             "path": file_path
                         })
         except Exception as e:
-            print(f"Error reading directory: {e}")
-        
+            print(f"Error reading directory: {e}")        
         return files
+    
+    def sum_files_size(self, file_data_list):
+        total_size = sum(file_data["size"] for file_data in file_data_list)
+        return total_size
+    
+    def get_max_space(self, project_name):
+        self.cursor.execute('SELECT max_space FROM projects WHERE project_name = ?', (project_name,))
+        result = self.cursor.fetchone()
+        return result[0] if result else None
 
+    def get_used_space(self, project_name):
+        self.cursor.execute('SELECT curr_space FROM projects WHERE project_name = ?', (project_name,))
+        result = self.cursor.fetchone()
+        return result[0] if result else None
+    
     def run(self, project_name):
         file_data = self.directory(project_name)
         filtered_files = self.filter_file_records(project_name, file_data)
-        return filtered_files
-    
+        if not filtered_files:
+            print("No new or updated files to upload.")
+            return []
+        total_size = self.sum_files_size(filtered_files)
+        if total_size + self.get_used_space(project_name) < self.get_max_space(project_name)*1024*1024*1024: #convert from gb to bytes
+            return filtered_files
+        print("Not enough space left for all files. Please free up space or upgrade your plan.")
+        return []
 
 class JSONConfig:
     def __init__(self, filename):

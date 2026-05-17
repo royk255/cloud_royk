@@ -5,6 +5,7 @@ import threading
 #from user_database import check_login, add_user, user_exists
 from ar_mess import DatabaseManager as d_manager
 from ar_mess import JSONConfig as j_config
+import hashlib
 
 
 
@@ -170,9 +171,10 @@ def handle_client(conn, addr):
                         continue
 
                     with open(file_path, "rb") as f:
-                        b64 = base64.b64encode(f.read())
+                        b64 = f.read()
+                        #b64 = base64.b64encode(f.read())
                     size = len(b64)
-                    conn.send(f"DOWNLOAD|{size}".encode())
+                    conn.send(f"DOWNLOAD|{size}".encode()) #send this 
                     ack = conn.recv(BUFFER_SIZE)
                     if ack == b"READY":
                         conn.sendall(b64)
