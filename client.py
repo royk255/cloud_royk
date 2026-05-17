@@ -306,7 +306,8 @@ class CloudClient:
                     print(f"Downloaded: {filename}")
                     dec = enc.decrypt_file(f"./{filename}", self.password)
                     if dec:
-                        with open(filename, "wb") as f:
+                        path = os.path.join(f"./download/{self.project_name}", filename)
+                        with open(path, "wb") as f:
                             f.write(dec)
                         print(f"Decrypted: {filename}")
                         #os.remove(filename)
