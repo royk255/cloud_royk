@@ -269,7 +269,7 @@ class DatabaseManager:
         project_id = self.get_project_id(project_name)
         self.cursor.execute('DELETE FROM files WHERE project_id = ? AND name_of_file = ?', (project_id, name_of_file))
         self.connection.commit()
-    
+
     def get_file_record(self, project_name, name_of_file):
         project_id = self.get_project_id(project_name)
         self.cursor.execute('SELECT * FROM files WHERE project_id = ? AND name_of_file = ?', (project_id, name_of_file))

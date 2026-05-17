@@ -11,6 +11,7 @@ from ar_mess import DatabaseManager as d_manager
 from importlib.resources import path
 from pathlib import Path
 import pathlib
+import enc
 
 SERVER_HOST = 'localhost'
 SERVER_PORT = 5002
@@ -204,10 +205,13 @@ class CloudClient:
         try:
             #filename = os.path.basename(path)
             filename = os.path.basename(path)
+            
+            b64 = enc.encrypt_file(path,self.password)
+            """
             with open(path, "rb") as f:
                 file_bytes = f.read()
             b64 = base64.b64encode(file_bytes).decode()
-
+            """
             # Create a new socket for each upload to avoid threading conflicts
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as upload_sock:
                 upload_sock.connect((self.host, self.port))
@@ -230,19 +234,19 @@ class CloudClient:
                 relative_folder = ""
                 if folder != self.project_directory:
                     relative_folder = os.path.relpath(folder, self.project_directory)
-                header = f"UPLOAD|{relative_folder}|{filename}|{len(b64)}"
+                header = f"UPLOAD|{relative_folder}|{filename}|{len(b64)}" #
                 upload_sock.sendall((header).encode())
 
                 response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response == "READY_TO_RECEIVE":
-                    upload_sock.sendall(b64.encode())
+                    upload_sock.sendall(b64)
                     response = upload_sock.recv(BUFFER_SIZE).decode().strip()
                 if response != "UPLOAD_SUCCESS":
                     raise Exception(f"Upload failed: {response}")
 
             print(f"[{threading.current_thread().name}] Uploaded: {filename}")
             db = d_manager("project_data.db")
-            db.add_file(self.project_name, filename, len(file_bytes), pathlib.Path(path).stat().st_mtime)
+            db.add_file(self.project_name, filename, len(b64), pathlib.Path(path).stat().st_mtime)
 
 
         except Exception as e:
@@ -323,11 +327,15 @@ class CloudClient:
                 with open(f"{self.project_name}.zip", "wb") as f:
                     f.write(zip_data)
                 print(f"Project '{self.project_name}' downloaded successfully.")
+                if enc.decrypt_zip_to_custom_folder(f"{self.project_name}.zip", self.password, self.project_name):
+                    print(f"Project '{self.project_name}' extracted successfully.")
+                    if os.path.exists(f"{self.project_name}.zip"):
+                        os.remove(f"{self.project_name}.zip")
+                        print(f"🗑️ Cleaned up! {self.project_name}.zip has been permanently deleted.")
+                    else:
+                        print(" File not found, nothing to delete.")
             else:
                 print(f"Failed to download project: Expected {expected_size} bytes, received {len(received_data)} bytes.")
-            
-
-
 
     def run(self):
         self.connect()

@@ -141,14 +141,14 @@ def handle_client(conn, addr):
                             break
                         received += chunk
 
-                    file_bytes = base64.b64decode(received)
+                    #file_bytes = base64.b64decode(received)
                     save_path = os.path.join(project_path, filename)
                     
                     # Ensure directory exists
                     os.makedirs(os.path.dirname(save_path), exist_ok=True)
                     
                     with open(save_path, "wb") as f:
-                        f.write(file_bytes)
+                        f.write(received)
 
                     conn.send(b"UPLOAD_SUCCESS")
                     print(f"[+] File '{filename}' uploaded to {project_path}")    #  cmd|par1|par2
